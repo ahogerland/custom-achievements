@@ -26,9 +26,12 @@
 package com.customachievements;
 
 import com.customachievements.requirements.AbstractRequirement;
+import com.customachievements.requirements.ItemRequirement;
+import com.customachievements.requirements.QuestRequirement;
 import com.customachievements.requirements.Requirement;
 import com.customachievements.requirements.RequirementType;
 import com.customachievements.requirements.SkillRequirement;
+import com.customachievements.requirements.SlayRequirement;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonDeserializationContext;
@@ -119,7 +122,6 @@ public class AchievementSerializer
 			return achievements;
 		}
 
-		// TODO: Fill these in once each type is available
 		private Requirement deserializeRequirement(JsonElement json, JsonDeserializationContext context) throws JsonParseException
 		{
 			RequirementType type = context.deserialize(json.getAsJsonObject().get("type"), RequirementType.class);
@@ -129,8 +131,11 @@ public class AchievementSerializer
 				case SKILL:
 					return context.deserialize(json, SkillRequirement.class);
 				case ITEM:
+					return context.deserialize(json, ItemRequirement.class);
+				case SLAY:
+					return context.deserialize(json, SlayRequirement.class);
 				case QUEST:
-				case CHUNK:
+					return context.deserialize(json, QuestRequirement.class);
 				case ABSTRACT:
 				default:
 					return context.deserialize(json, AbstractRequirement.class);

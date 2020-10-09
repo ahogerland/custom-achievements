@@ -26,34 +26,25 @@
 package com.customachievements.requirements;
 
 import lombok.Getter;
-import lombok.Setter;
 
 @Getter
-@Setter
-public class AbstractRequirement extends Requirement
+public enum ItemTrackingOption
 {
-	private String name;
+	DROPPED("Dropped", "Receive as a drop from monsters or activities"),
+	INVENTORY("Inventory", "Acquire in inventory");
 
-	public AbstractRequirement(String name)
-	{
-		this(name, false);
-	}
+	private final String name;
+	private final String description;
 
-	public AbstractRequirement(String name, boolean complete)
+	ItemTrackingOption(String name, String description)
 	{
-		super(RequirementType.ABSTRACT, complete);
 		this.name = name;
-	}
-
-	@Override
-	public Requirement deepCopy()
-	{
-		return new AbstractRequirement(name, complete);
+		this.description = description;
 	}
 
 	@Override
 	public String toString()
 	{
-		return name.isEmpty() ? super.toString() : name;
+		return name;
 	}
 }

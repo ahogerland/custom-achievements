@@ -33,6 +33,7 @@ import com.customachievements.requirements.Requirement;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
+import net.runelite.api.Client;
 import net.runelite.client.ui.ColorScheme;
 
 @Getter
@@ -41,20 +42,22 @@ public class Achievement
 {
 	private String name;
 	private boolean complete;
+	private boolean inProgress;
+	private boolean forceComplete;
 	private boolean autoCompleted;
 	private boolean uiExpanded;
 
 	@Getter(AccessLevel.NONE)
-	private transient CompleteListener listener;
-	private transient boolean inProgress;
+	private transient StatusListener statusListener;
 
 	private final List<Requirement> requirements;
 
-	public Achievement(final String name)
+	public Achievement(String name)
 	{
 		this.name = name;
 		this.complete = false;
 		this.inProgress = false;
+		this.forceComplete = false;
 		this.autoCompleted = true;
 		this.uiExpanded = true;
 		this.requirements = new ArrayList<>();
@@ -65,6 +68,7 @@ public class Achievement
 		this.name = other.name;
 		this.complete = other.complete;
 		this.inProgress = other.inProgress;
+		this.forceComplete = other.forceComplete;
 		this.autoCompleted = other.autoCompleted;
 		this.uiExpanded = other.uiExpanded;
 		this.requirements = new ArrayList<>();
@@ -73,11 +77,6 @@ public class Achievement
 		{
 			this.requirements.add(requirement.deepCopy());
 		}
-	}
-
-	public void setCompleteListener(CompleteListener listener)
-	{
-		this.listener = listener;
 	}
 
 	public void addRequirement(Requirement requirement)
@@ -90,10 +89,24 @@ public class Achievement
 		requirements.remove(requirement);
 	}
 
-	public void update()
+	public void refresh(Client client)
 	{
+		for (Requirement requirement : requirements)
+		{
+			requirement.refresh(client);
+		}
+	}
+
+	public void checkStatus()
+	{
+		if (forceComplete)
+		{
+			complete = true;
+			return;
+		}
+
 		boolean completeStatus = true;
-		boolean inProgressStatus = false;
+		inProgress = false;
 
 		for (Requirement requirement : requirements)
 		{
@@ -101,27 +114,23 @@ public class Achievement
 			{
 				completeStatus = false;
 			}
-			else
+
+			if (requirement.isComplete() || requirement.isInProgress())
 			{
-				inProgressStatus = true;
+				inProgress = true;
 			}
 		}
 
-		if (autoCompleted)
+		if (!complete && completeStatus)
 		{
 			// TODO: Add a config setting to enable this when auto complete is disabled.
-			if (!complete && completeStatus)
-			{
-				complete = true;
-				notifyListener();
-			}
-			else
-			{
-				complete = completeStatus;
-			}
+			complete = autoCompleted;
+			broadcastStatus();
 		}
-
-		inProgress = inProgressStatus;
+		else
+		{
+			complete = completeStatus && autoCompleted;
+		}
 	}
 
 	public Color getColor(final CustomAchievementsConfig config)
@@ -130,7 +139,7 @@ public class Achievement
 		{
 			return ColorScheme.PROGRESS_COMPLETE_COLOR;
 		}
-		else if (inProgress && config.inProgressEnabled())
+		else if (inProgress && config.achievementInProgressEnabled())
 		{
 			return ColorScheme.PROGRESS_INPROGRESS_COLOR;
 		}
@@ -142,11 +151,15 @@ public class Achievement
 
 	public String getToolTip(final CustomAchievementsConfig config)
 	{
-		if (complete)
+		if (forceComplete)
+		{
+			return "Complete (Forced)";
+		}
+		else if (complete)
 		{
 			return "Complete";
 		}
-		else if (inProgress && config.inProgressEnabled())
+		else if (inProgress && config.achievementInProgressEnabled())
 		{
 			return "In Progress";
 		}
@@ -156,8 +169,42 @@ public class Achievement
 		}
 	}
 
-	private void notifyListener()
+	@Override
+	public String toString()
 	{
-		listener.onComplete();
+		return String.format("%s%s", name, forceComplete ? " *" : "");
+	}
+
+	public void setStatusListener(StatusListener listener)
+	{
+		this.statusListener = listener;
+	}
+
+	protected void broadcastStatus()
+	{
+		if (complete)
+		{
+			broadcastComplete();
+		}
+		else if (inProgress)
+		{
+			broadcastUpdated();
+		}
+	}
+
+	protected void broadcastComplete()
+	{
+		if (statusListener != null)
+		{
+			statusListener.onComplete();
+		}
+	}
+
+	protected void broadcastUpdated()
+	{
+		if (statusListener != null)
+		{
+			statusListener.onUpdated();
+		}
 	}
 }

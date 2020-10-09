@@ -23,37 +23,20 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-package com.customachievements.requirements;
+package com.customachievements.events;
 
-import lombok.Getter;
-import lombok.Setter;
+import com.customachievements.ItemSource;
+import com.customachievements.NamedItem;
+import lombok.Value;
 
-@Getter
-@Setter
-public class AbstractRequirement extends Requirement
+import java.util.Collection;
+
+/**
+ * Event published by the customachievements plugin when items are received from a valid source.
+ */
+@Value
+public class ItemsValidated
 {
-	private String name;
-
-	public AbstractRequirement(String name)
-	{
-		this(name, false);
-	}
-
-	public AbstractRequirement(String name, boolean complete)
-	{
-		super(RequirementType.ABSTRACT, complete);
-		this.name = name;
-	}
-
-	@Override
-	public Requirement deepCopy()
-	{
-		return new AbstractRequirement(name, complete);
-	}
-
-	@Override
-	public String toString()
-	{
-		return name.isEmpty() ? super.toString() : name;
-	}
+	ItemSource source;
+	Collection<NamedItem> items;
 }

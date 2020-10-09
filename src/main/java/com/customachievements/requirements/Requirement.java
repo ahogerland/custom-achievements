@@ -26,9 +26,12 @@
 package com.customachievements.requirements;
 
 import java.awt.Color;
+import java.util.Set;
 
 import com.customachievements.Achievement;
-import com.customachievements.CompleteListener;
+import com.customachievements.CustomAchievementsConfig;
+import com.customachievements.StatusListener;
+import com.google.common.collect.ImmutableSet;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
@@ -39,39 +42,39 @@ import net.runelite.client.ui.ColorScheme;
 @Setter
 public abstract class Requirement
 {
+	protected static final Set<Character> VOWELS = ImmutableSet.of('a', 'e', 'i', 'o', 'u');
+	protected static final String NAME_UNKNOWN = "???";
+
 	protected RequirementType type;
 	protected boolean complete;
+	protected boolean inProgress;
 
 	@Getter(AccessLevel.NONE)
-	private transient CompleteListener listener;
+	protected transient StatusListener statusListener;
 
-	public Requirement(final RequirementType type)
+	public Requirement(RequirementType type)
 	{
 		this(type, false);
 	}
 
-	public Requirement(final RequirementType type, final boolean complete)
+	public Requirement(RequirementType type, boolean complete)
 	{
 		this.type = type;
 		this.complete = complete;
+		this.inProgress = false;
 	}
 
-	/**
-	 * Return a deep copy of this Requirement.
-	 */
 	public abstract Requirement deepCopy();
 
-	/**
-	 * Update Requirement status outside normal events.
-	 */
-	public abstract void forceUpdate(Client client);
+	public void refresh(Client client) {}
 
-	public void setCompleteListener(CompleteListener listener)
+	public void reset()
 	{
-		this.listener = listener;
+		complete = false;
+		inProgress = false;
 	}
 
-	public Color getColor(Achievement parent)
+	public Color getColor(Achievement parent, final CustomAchievementsConfig config)
 	{
 		if (complete)
 		{
@@ -81,13 +84,17 @@ public abstract class Requirement
 		{
 			return ColorScheme.LIGHT_GRAY_COLOR;
 		}
+		else if (inProgress && config.requirementInProgressEnabled())
+		{
+			return ColorScheme.PROGRESS_INPROGRESS_COLOR;
+		}
 		else
 		{
 			return ColorScheme.PROGRESS_ERROR_COLOR;
 		}
 	}
 
-	public String getToolTip(Achievement parent)
+	public String getStatus(Achievement parent, final CustomAchievementsConfig config)
 	{
 		if (complete)
 		{
@@ -97,14 +104,52 @@ public abstract class Requirement
 		{
 			return "Skipped";
 		}
+		else if (inProgress && config.requirementInProgressEnabled())
+		{
+			return "In Progress";
+		}
 		else
 		{
 			return "Incomplete";
 		}
 	}
 
-	protected void notifyListener()
+	@Override
+	public String toString()
 	{
-		listener.onComplete();
+		return NAME_UNKNOWN;
+	}
+
+	public void setStatusListener(StatusListener listener)
+	{
+		statusListener = listener;
+	}
+
+	protected void broadcastStatus()
+	{
+		if (complete)
+		{
+			broadcastComplete();
+		}
+		else if (inProgress)
+		{
+			broadcastUpdated();
+		}
+	}
+
+	protected void broadcastComplete()
+	{
+		if (statusListener != null)
+		{
+			statusListener.onComplete();
+		}
+	}
+
+	protected void broadcastUpdated()
+	{
+		if (statusListener != null)
+		{
+			statusListener.onUpdated();
+		}
 	}
 }

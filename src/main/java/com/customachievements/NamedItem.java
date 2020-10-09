@@ -25,7 +25,12 @@
  */
 package com.customachievements;
 
-public interface CompleteListener
+import lombok.Value;
+
+@Value
+public class NamedItem
 {
-	void onComplete();
+	int id;
+	String name;
+	int quantity;
 }

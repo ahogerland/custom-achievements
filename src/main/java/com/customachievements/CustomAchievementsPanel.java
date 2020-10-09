@@ -66,6 +66,7 @@ import net.runelite.client.util.ColorUtil;
 @Slf4j
 public class CustomAchievementsPanel extends PluginPanel
 {
+	public static final int ENTRY_HEIGHT = 18;
 	public static final int BUTTON_WIDTH = 24;
 	public static final int INDENT_WIDTH = 16;
 
@@ -85,10 +86,11 @@ public class CustomAchievementsPanel extends PluginPanel
 	private static final ImageIcon EXPAND_ICON;
 	private static final ImageIcon COLLAPSE_ICON;
 
+	private static final String TITLE_MAIN = "Achievements";
+	private static final String TITLE_EDIT = "Editor";
 	private static final String BLURB_USAGE;
 	private static final String BLURB_EDIT;
 
-	private final JPanel headerPanel = new JPanel();
 	private final JPanel achievementsPanel = new JPanel();
 
 	private final JLabel title = new JLabel();
@@ -138,19 +140,20 @@ public class CustomAchievementsPanel extends PluginPanel
 		COLLAPSE_ICON = new ImageIcon(ImageUtil.luminanceScale(collapseImage, 0.4f));
 
 		BLURB_USAGE = "<html>"
-				+ "Introduction blurb. This will contain a small description of the text "
-				+ wrapTextWithColor("color", ColorScheme.BRAND_ORANGE) + " and inform the user "
-				+ "to click on an achievement/requirement name to force complete."
+				+ "Create and edit Custom Achievements using the menu buttons above. Additional tools are shown in "
+				+ "Edit Mode. For help and usage visit the custom-achievements GitHub page."
 				+ "</html>";
 
-		BLURB_EDIT = "<html>" + "Edit Achievement Blurb" + "</html>";
+		BLURB_EDIT = "<html>"
+				+ "NOTE: Editing Requirements will NOT overwrite accumulated progress."
+				+ "</html>";
 	}
 
 	CustomAchievementsPanel(final CustomAchievementsPlugin plugin, final CustomAchievementsConfig config)
 	{
 		this.plugin = plugin;
 		this.config = config;
-		this.editAchievementPanel = new EditAchievementPanel(plugin, config, new Achievement("New Achievement"));
+		this.editAchievementPanel = new EditAchievementPanel(plugin, new Achievement("New Achievement"));
 
 		// Start with edit panel hidden
 		editAchievementPanel.setVisible(false);
@@ -161,6 +164,7 @@ public class CustomAchievementsPanel extends PluginPanel
 			refresh();
 		});
 
+		final JPanel headerPanel = new JPanel();
 		final JPanel actionsWrapper = new JPanel();
 		final JPanel achievementsWrapper = new JPanel();
 		final JPanel blurbWrapper = new JPanel();
@@ -184,13 +188,10 @@ public class CustomAchievementsPanel extends PluginPanel
 		achievementsPanel.setBorder(BorderFactory.createEmptyBorder(8, 0, 0, 0));
 		achievementsPanel.setBackground(ColorScheme.DARKER_GRAY_COLOR);
 
-		title.setText("Achievements");
 		title.setForeground(Color.WHITE);
-
 		blurb.setForeground(ColorScheme.LIGHT_GRAY_COLOR);
 		blurb.setFont(FontManager.getRunescapeSmallFont());
 		blurb.setBorder(BorderFactory.createEmptyBorder(8, 0, 8, 0));
-		blurb.setText(BLURB_USAGE);
 
 		final JSeparator blurbSeparator = new JSeparator();
 		blurbSeparator.setBackground(ColorScheme.LIGHT_GRAY_COLOR);
@@ -307,7 +308,7 @@ public class CustomAchievementsPanel extends PluginPanel
 	{
 		JFileChooser fc = new JFileChooser();
 
-		fc.setDialogType(JFileChooser.OPEN_DIALOG);
+		fc.setDialogType(JFileChooser.SAVE_DIALOG);
 		fc.setDialogTitle("Export Custom Achievements to a JSON file");
 		fc.setSelectedFile(new File("achievements.json"));
 		fc.setFileFilter(new FileNameExtensionFilter("JSON", "json", "JSON"));
@@ -357,22 +358,28 @@ public class CustomAchievementsPanel extends PluginPanel
 			// Disable actions while editing achievements
 			enableActions(false);
 
+			title.setText(TITLE_EDIT);
+			blurb.setText(BLURB_EDIT);
+
 			achievementsPanel.add(editAchievementPanel, gbc);
 		}
 		else
 		{
-			// Re-enable actions
-			enableActions(true);
-
 			JPanel wrapper;
 			ActionListener expandCallback;
 			ActionListener editCallback;
 			ActionListener removeCallback;
 
+			// Re-enable actions
+			enableActions(true);
+
+			title.setText(TITLE_MAIN);
+			blurb.setText(BLURB_USAGE);
+
 			for (Achievement achievement : plugin.getAchievements())
 			{
 				// Update Achievement status
-				achievement.update();
+				achievement.checkStatus();
 
 				expandCallback = e -> {
 					achievement.setUiExpanded(!achievement.isUiExpanded());
@@ -438,16 +445,15 @@ public class CustomAchievementsPanel extends PluginPanel
 	private JLabel createAchievementLabel(final Achievement achievement)
 	{
 		JLabel label = new JLabel();
-
-		label.setText(achievement.getName());
+		label.setText(achievement.toString());
 		label.setForeground(achievement.getColor(config));
 		label.setToolTipText(achievement.getToolTip(config));
 		label.addMouseListener(new MouseAdapter() {
 			@Override
 			public void mousePressed(MouseEvent e)
 			{
-				achievement.setComplete(!achievement.isComplete());
-				achievement.update();
+				achievement.setForceComplete(!achievement.isForceComplete());
+				achievement.checkStatus();
 				refresh();
 			}
 
@@ -470,16 +476,23 @@ public class CustomAchievementsPanel extends PluginPanel
 	private JLabel createRequirementLabel(final Achievement achievement, final Requirement requirement)
 	{
 		JLabel label = new JLabel();
-
 		label.setText(requirement.toString());
-		label.setForeground(requirement.getColor(achievement));
-		label.setToolTipText(requirement.getToolTip(achievement));
+		label.setForeground(requirement.getColor(achievement, config));
+		label.setToolTipText(String.format("%s: %s", requirement.toString(), requirement.getStatus(achievement, config)));
 		label.addMouseListener(new MouseAdapter()
 		{
 			@Override
 			public void mousePressed(MouseEvent e)
 			{
-				requirement.setComplete(!requirement.isComplete());
+				if (requirement.isComplete())
+				{
+					requirement.reset();
+				}
+				else
+				{
+					requirement.setComplete(true);
+				}
+
 				refresh();
 			}
 
@@ -492,23 +505,24 @@ public class CustomAchievementsPanel extends PluginPanel
 			@Override
 			public void mouseExited(MouseEvent e)
 			{
-				label.setForeground(requirement.getColor(achievement));
+				label.setForeground(requirement.getColor(achievement, config));
 			}
 		});
 
 		return label;
 	}
 
-	private JPanel createExpandableListEntryWrapper(final JLabel label,
-													final ActionListener expandCallback,
-													final ActionListener editCallback,
-													final ActionListener removeCallback,
-													final int indent,
-													final boolean expanded)
+	private JPanel createExpandableListEntryWrapper(
+			final JLabel label,
+			final ActionListener expandCallback,
+			final ActionListener editCallback,
+			final ActionListener removeCallback,
+			final int indent,
+			final boolean expanded)
 	{
 		final JPanel wrapper = createListEntryWrapper(label, editCallback, removeCallback, indent);
-		final JButton expandButton = new JButton(expanded ? COLLAPSE_ICON : EXPAND_ICON);
 
+		final JButton expandButton = new JButton(expanded ? COLLAPSE_ICON : EXPAND_ICON);
 		SwingUtil.removeButtonDecorations(expandButton);
 		expandButton.setPreferredSize(new Dimension(BUTTON_WIDTH, wrapper.getHeight()));
 		expandButton.setToolTipText(expanded ? "Collapse" : "Expand");
@@ -519,10 +533,11 @@ public class CustomAchievementsPanel extends PluginPanel
 		return wrapper;
 	}
 
-	private JPanel createListEntryWrapper(final JLabel label,
-										  final ActionListener editCallback,
-										  final ActionListener removeCallback,
-										  final int indent)
+	private JPanel createListEntryWrapper(
+			final JLabel label,
+			final ActionListener editCallback,
+			final ActionListener removeCallback,
+			final int indent)
 	{
 		return createListEntryWrapper(label, editCallback, removeCallback, indent, 0);
 	}
@@ -536,6 +551,7 @@ public class CustomAchievementsPanel extends PluginPanel
 		final JPanel wrapper = new JPanel(new BorderLayout());
 		wrapper.setBackground(ColorScheme.DARKER_GRAY_COLOR);
 		wrapper.setBorder(BorderFactory.createEmptyBorder(0, Math.max(0, (indent * INDENT_WIDTH) + offset), 2, 0));
+		wrapper.setPreferredSize(new Dimension(getPreferredSize().width, ENTRY_HEIGHT));
 
 		if (editToggle.isSelected())
 		{

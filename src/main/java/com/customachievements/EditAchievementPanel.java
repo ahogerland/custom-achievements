@@ -44,7 +44,6 @@ import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
-import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JList;
 import javax.swing.JPanel;
@@ -53,18 +52,22 @@ import javax.swing.SpinnerNumberModel;
 import javax.swing.border.MatteBorder;
 
 import com.customachievements.requirements.AbstractRequirement;
+import com.customachievements.requirements.ItemRequirement;
+import com.customachievements.requirements.ItemTrackingOption;
+import com.customachievements.requirements.QuestRequirement;
 import com.customachievements.requirements.Requirement;
 import com.customachievements.requirements.RequirementType;
 import com.customachievements.requirements.SkillRequirement;
 import com.customachievements.requirements.SkillTargetType;
+import com.customachievements.requirements.SlayRequirement;
 import lombok.Getter;
 import lombok.NonNull;
+import net.runelite.api.Quest;
 import net.runelite.api.Skill;
 import net.runelite.client.ui.ColorScheme;
 import net.runelite.client.ui.FontManager;
 import net.runelite.client.ui.components.FlatTextField;
 import net.runelite.client.util.ImageUtil;
-import net.runelite.client.util.SwingUtil;
 
 public class EditAchievementPanel extends JPanel
 {
@@ -76,7 +79,6 @@ public class EditAchievementPanel extends JPanel
 	private final List<ActionListener> listeners = new ArrayList<>();
 
 	private final CustomAchievementsPlugin plugin;
-	private final CustomAchievementsConfig config;
 
 	@Getter
 	private Achievement target;
@@ -89,10 +91,9 @@ public class EditAchievementPanel extends JPanel
 		ADD_ICON = new ImageIcon(addImage);
 	}
 
-	EditAchievementPanel(final CustomAchievementsPlugin plugin, final CustomAchievementsConfig config, final Achievement target)
+	EditAchievementPanel(final CustomAchievementsPlugin plugin, final Achievement target)
 	{
 		this.plugin = plugin;
-		this.config = config;
 		this.target = target;
 		this.dummy = new Achievement(target);
 
@@ -119,7 +120,8 @@ public class EditAchievementPanel extends JPanel
 		plugin.addAchievement(target); // Required for new Achievements
 
 		// Update Achievement status
-		target.update();
+		plugin.globalRefresh();
+		target.checkStatus();
 		plugin.updateConfig();
 
 		notifyListeners(ACTION_UPDATE);
@@ -267,6 +269,15 @@ public class EditAchievementPanel extends JPanel
 			case SKILL:
 				requirementPanel = createSkillRequirementPanel((SkillRequirement) requirement);
 				break;
+			case ITEM:
+				requirementPanel = createItemRequirementPanel((ItemRequirement) requirement);
+				break;
+			case SLAY:
+				requirementPanel = createSlayRequirementPanel((SlayRequirement) requirement);
+				break;
+			case QUEST:
+				requirementPanel = createQuestRequirementPanel((QuestRequirement) requirement);
+				break;
 			case ABSTRACT:
 			default:
 				requirementPanel = createAbstractRequirementPanel((AbstractRequirement) requirement);
@@ -280,38 +291,182 @@ public class EditAchievementPanel extends JPanel
 
 	private JPanel createSkillRequirementPanel(final SkillRequirement requirement)
 	{
-		final JPanel wrapper = new JPanel(new GridLayout(1, 3));
+		final JPanel wrapper = new JPanel(new GridLayout(2, 1));
+		wrapper.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+
+		final JPanel optionsPanel = new JPanel(new GridLayout(1, 2));
 		wrapper.setBackground(ColorScheme.DARKER_GRAY_COLOR);
 
 		final JComboBox<Skill> skillComboBox = new JComboBox<>(Skill.values());
 		skillComboBox.setForeground(Color.WHITE);
 		skillComboBox.setBackground(ColorScheme.DARK_GRAY_COLOR);
 		skillComboBox.setSelectedIndex(requirement.getSkill().ordinal());
+		skillComboBox.setToolTipText("Skill");
 		skillComboBox.addActionListener(e -> {
 			requirement.setSkill((Skill) skillComboBox.getSelectedItem());
+			requirement.setComplete(false);
 			refresh();
 		});
 
 		final JComboBox<SkillTargetType> targetTypeComboBox = new JComboBox<>(SkillTargetType.values());
-		skillComboBox.setForeground(Color.WHITE);
+		targetTypeComboBox.setForeground(Color.WHITE);
 		targetTypeComboBox.setBackground(ColorScheme.DARK_GRAY_COLOR);
 		targetTypeComboBox.setSelectedIndex(requirement.getTargetType().ordinal());
+		targetTypeComboBox.setToolTipText("Target Type");
 		targetTypeComboBox.addActionListener(e -> {
 			requirement.setTargetType((SkillTargetType) targetTypeComboBox.getSelectedItem());
+			requirement.setComplete(false);
 			refresh();
 		});
 
-		final JSpinner valueSpinner = new JSpinner(new SpinnerNumberModel(1, 1, 99, 1));
+		final JSpinner valueSpinner = new JSpinner(new SpinnerNumberModel(1, 1, Integer.MAX_VALUE, 1));
 		valueSpinner.setBackground(ColorScheme.DARK_GRAY_COLOR);
 		valueSpinner.setValue(requirement.getTarget());
+		valueSpinner.setToolTipText("Target Value");
 		valueSpinner.addChangeListener(e -> {
 			requirement.setTarget((int) valueSpinner.getValue());
+			requirement.setComplete(false);
 			refresh();
 		});
 
+		optionsPanel.add(skillComboBox);
+		optionsPanel.add(targetTypeComboBox);
+		wrapper.add(optionsPanel);
 		wrapper.add(valueSpinner);
-		wrapper.add(skillComboBox);
-		wrapper.add(targetTypeComboBox);
+
+		return wrapper;
+	}
+
+	private JPanel createItemRequirementPanel(final ItemRequirement requirement)
+	{
+		final JPanel wrapper = new JPanel(new GridLayout(3, 2));
+		wrapper.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+
+		final JLabel nameLabel = new JLabel("Item");
+		nameLabel.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+
+		final FlatTextField nameInput = new FlatTextField();
+		nameInput.setText(requirement.getName());
+		nameInput.setBackground(ColorScheme.DARK_GRAY_COLOR);
+		nameInput.setHoverBackgroundColor(ColorScheme.DARK_GRAY_HOVER_COLOR);
+		nameInput.addKeyListener(new KeyListener()
+		{
+			@Override
+			public void keyTyped(KeyEvent e) {}
+
+			@Override
+			public void keyPressed(KeyEvent e) {}
+
+			@Override
+			public void keyReleased(KeyEvent e)
+			{
+				requirement.setName(nameInput.getText());
+				requirement.setComplete(false);
+			}
+		});
+
+		final JLabel quantityLabel = new JLabel("Quantity");
+		quantityLabel.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+
+		final JSpinner quantitySpinner = new JSpinner(new SpinnerNumberModel(1, 1, Integer.MAX_VALUE, 1));
+		quantitySpinner.setBackground(ColorScheme.DARK_GRAY_COLOR);
+		quantitySpinner.setValue(requirement.getQuantity());
+		quantitySpinner.setToolTipText("Quantity");
+		quantitySpinner.addChangeListener(e -> {
+			requirement.setQuantity((int) quantitySpinner.getValue());
+			requirement.setComplete(false);
+			refresh();
+		});
+
+		final JLabel trackingLabel = new JLabel("Tracking Option");
+		quantityLabel.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+
+		final JComboBox<ItemTrackingOption> trackingComboBox = new JComboBox<>(ItemTrackingOption.values());
+		trackingComboBox.setForeground(Color.WHITE);
+		trackingComboBox.setBackground(ColorScheme.DARK_GRAY_COLOR);
+		trackingComboBox.setSelectedIndex(requirement.getTrackingOption().ordinal());
+		trackingComboBox.setRenderer(new ItemTrackingOptionComboBoxRenderer());
+		trackingComboBox.addActionListener(e -> {
+			requirement.setTrackingOption((ItemTrackingOption) trackingComboBox.getSelectedItem());
+			requirement.setComplete(false);
+			refresh();
+		});
+
+		wrapper.add(nameLabel);
+		wrapper.add(nameInput);
+		wrapper.add(quantityLabel);
+		wrapper.add(quantitySpinner);
+		wrapper.add(trackingLabel);
+		wrapper.add(trackingComboBox);
+
+		return wrapper;
+	}
+
+	private JPanel createSlayRequirementPanel(final SlayRequirement requirement)
+	{
+		final JPanel wrapper = new JPanel(new GridLayout(2, 2));
+		wrapper.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+
+		final JLabel nameLabel = new JLabel("Target");
+		nameLabel.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+
+		final FlatTextField nameInput = new FlatTextField();
+		nameInput.setText(requirement.getName());
+		nameInput.setBackground(ColorScheme.DARK_GRAY_COLOR);
+		nameInput.setHoverBackgroundColor(ColorScheme.DARK_GRAY_HOVER_COLOR);
+		nameInput.addKeyListener(new KeyListener()
+		{
+			@Override
+			public void keyTyped(KeyEvent e) {}
+
+			@Override
+			public void keyPressed(KeyEvent e) {}
+
+			@Override
+			public void keyReleased(KeyEvent e)
+			{
+				requirement.setName(nameInput.getText());
+				requirement.setComplete(false);
+			}
+		});
+
+		final JLabel quantityLabel = new JLabel("Quantity");
+		quantityLabel.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+
+		final JSpinner quantitySpinner = new JSpinner(new SpinnerNumberModel(1, 1, Integer.MAX_VALUE, 1));
+		quantitySpinner.setBackground(ColorScheme.DARK_GRAY_COLOR);
+		quantitySpinner.setValue(requirement.getQuantity());
+		quantitySpinner.setToolTipText("Quantity");
+		quantitySpinner.addChangeListener(e -> {
+			requirement.setQuantity((int) quantitySpinner.getValue());
+			requirement.setComplete(false);
+			refresh();
+		});
+
+		wrapper.add(nameLabel);
+		wrapper.add(nameInput);
+		wrapper.add(quantityLabel);
+		wrapper.add(quantitySpinner);
+
+		return wrapper;
+	}
+
+	private JPanel createQuestRequirementPanel(final QuestRequirement requirement)
+	{
+		final JPanel wrapper = new JPanel(new BorderLayout());
+		wrapper.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+
+		final JComboBox<Quest> questComboBox = new JComboBox<>(Quest.values());
+		questComboBox.setForeground(Color.WHITE);
+		questComboBox.setBackground(ColorScheme.DARK_GRAY_COLOR);
+		questComboBox.setSelectedIndex(requirement.getQuest().ordinal());
+		questComboBox.setRenderer(new QuestComboBoxRenderer());
+		questComboBox.addActionListener(e -> {
+			requirement.setQuest((Quest) questComboBox.getSelectedItem());
+			refresh();
+		});
+
+		wrapper.add(questComboBox, BorderLayout.CENTER);
 
 		return wrapper;
 	}
@@ -337,6 +492,7 @@ public class EditAchievementPanel extends JPanel
 			public void keyReleased(KeyEvent e)
 			{
 				requirement.setName(nameInput.getText());
+				requirement.setComplete(false);
 			}
 		});
 
@@ -369,6 +525,7 @@ public class EditAchievementPanel extends JPanel
 				Requirement requirement = plugin.createRequirement((RequirementType) dropdown.getSelectedItem());
 
 				// Requirement does not need to be registered with the EventBus yet
+				// so we just naively add directly to the Achievement here
 				dummy.addRequirement(requirement);
 			}
 
@@ -388,12 +545,9 @@ public class EditAchievementPanel extends JPanel
 		wrapper.setBackground(ColorScheme.DARKER_GRAY_COLOR);
 
 		final JButton confirmButton = new JButton("Confirm");
-		final JButton cancelButton = new JButton("Cancel");
-
-		confirmButton.setToolTipText("Confirm");
 		confirmButton.addActionListener(e -> updateTarget());
 
-		cancelButton.setToolTipText("Cancel");
+		final JButton cancelButton = new JButton("Cancel");
 		cancelButton.addActionListener(e -> notifyListeners(ACTION_CANCEL));
 
 		wrapper.add(confirmButton, BorderLayout.WEST);
@@ -402,21 +556,56 @@ public class EditAchievementPanel extends JPanel
 		return wrapper;
 	}
 
+	private static class QuestComboBoxRenderer extends DefaultListCellRenderer
+	{
+		@Override
+		public Component getListCellRendererComponent(JList list, Object value, int index, boolean isSelected, boolean cellHasFocus)
+		{
+			JLabel label = (JLabel) super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+
+			if (value instanceof Quest)
+			{
+				Quest quest = (Quest) value;
+				label.setText(quest.getName());
+			}
+
+			return label;
+		}
+	}
+
+	private static class ItemTrackingOptionComboBoxRenderer extends DefaultListCellRenderer
+	{
+		@Override
+		public Component getListCellRendererComponent(JList list, Object value, int index, boolean isSelected, boolean cellHasFocus)
+		{
+			JLabel label = (JLabel) super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+
+			if (value instanceof ItemTrackingOption)
+			{
+				ItemTrackingOption option = (ItemTrackingOption) value;
+				label.setToolTipText(option.getDescription());
+			}
+
+			return label;
+		}
+	}
+
 	private static class RequirementTypeComboBoxRenderer extends DefaultListCellRenderer
 	{
 		@Override
 		public Component getListCellRendererComponent(JList list, Object value, int index, boolean isSelected, boolean cellHasFocus)
 		{
-			JComponent component = (JComponent) super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
-			component.setForeground(index == 0 ? ColorScheme.LIGHT_GRAY_COLOR : ColorScheme.BRAND_ORANGE);
+			JLabel label = (JLabel) super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+
+			label.setForeground(index == 0 ? ColorScheme.LIGHT_GRAY_COLOR : ColorScheme.BRAND_ORANGE);
 
 			if (value instanceof RequirementType)
 			{
 				RequirementType type = (RequirementType) value;
-				component.setToolTipText(type.getDescription());
+				label.setToolTipText(type.getDescription());
 			}
 
-			return component;
+			return label;
 		}
 	}
 }

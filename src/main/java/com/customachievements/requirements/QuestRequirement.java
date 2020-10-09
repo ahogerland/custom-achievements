@@ -25,81 +25,88 @@
  */
 package com.customachievements.requirements;
 
+import com.customachievements.events.QuestStateChanged;
 import lombok.Getter;
 import lombok.Setter;
 import net.runelite.api.Client;
-import net.runelite.api.Skill;
-import net.runelite.api.events.StatChanged;
+import net.runelite.api.Quest;
+import net.runelite.api.QuestState;
 import net.runelite.client.eventbus.Subscribe;
 
 @Getter
 @Setter
-public class SkillRequirement extends Requirement
+public class QuestRequirement extends Requirement
 {
-	private Skill skill;
-	private SkillTargetType targetType;
-	private int target;
+	private Quest quest;
 
-	public SkillRequirement(
-			Skill skill,
-			SkillTargetType targetType,
-			int target)
+	public QuestRequirement(Quest quest)
 	{
-		this(skill, targetType, target, false);
+		this(quest, false);
 	}
 
-	public SkillRequirement(
-			Skill skill,
-			SkillTargetType targetType,
-			int target,
-			boolean complete)
+	public QuestRequirement(Quest quest, boolean complete)
 	{
-		super(RequirementType.SKILL, complete);
-		this.skill = skill;
-		this.targetType = targetType;
-		this.target = target;
+		super(RequirementType.QUEST, complete);
+		this.quest = quest;
+	}
+
+	@Override
+	public void setComplete(boolean complete)
+	{
+		// Do nothing. Pseudo-private field.
+	}
+
+	@Override
+	public void setInProgress(boolean inProgress)
+	{
+		// Do nothing. Pseudo-private field.
 	}
 
 	@Subscribe
-	public void onStatChanged(final StatChanged statChanged)
+	public void onQuestStateChanged(final QuestStateChanged questStateChanged)
 	{
-		if (!complete && skill.equals(statChanged.getSkill()))
+		if (questStateChanged.getQuest() == quest)
 		{
-			if ((targetType == SkillTargetType.LEVEL && statChanged.getLevel() >= target) ||
-				(targetType == SkillTargetType.XP && statChanged.getXp() >= target))
-			{
-				complete = true;
-				broadcastStatus();
-			}
+			checkStatus(questStateChanged.getState());
+			broadcastStatus();
 		}
 	}
 
 	@Override
 	public Requirement deepCopy()
 	{
-		return new SkillRequirement(skill, targetType, target, complete);
+		return new QuestRequirement(quest, complete);
 	}
 
 	@Override
 	public void refresh(Client client)
 	{
-		if ((targetType == SkillTargetType.LEVEL && client.getRealSkillLevel(skill) >= target) ||
-			(targetType == SkillTargetType.XP && client.getSkillExperience(skill) >= target))
-		{
-			complete = true;
-		}
+		checkStatus(quest.getState(client));
+	}
+
+	@Override
+	public void reset()
+	{
+		// Do nothing. Quest progress is unidirectional.
 	}
 
 	@Override
 	public String toString()
 	{
-		if (targetType == SkillTargetType.LEVEL)
+		return String.format("Complete %s", quest.getName());
+	}
+
+	public void checkStatus(QuestState state)
+	{
+		complete = inProgress = false;
+
+		switch (state)
 		{
-			return String.format("%d %s", target, skill.getName());
-		}
-		else
-		{
-			return String.format("%d %s XP", target, skill.getName());
+			case FINISHED:
+				complete = true;
+				break;
+			case IN_PROGRESS:
+				inProgress = true;
 		}
 	}
 }

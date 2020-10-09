@@ -35,15 +35,31 @@ import net.runelite.client.config.ConfigItem;
 public interface CustomAchievementsConfig extends Config
 {
 	@ConfigItem(
+			position = 0,
+			keyName = "ironmanModeEnabled",
+			name = "Ironman Mode",
+			description = "Prevent player help for item drops and monster kills."
+	)
+	default boolean ironmanModeEnabled() { return true; }
+
+	@ConfigItem(
 			position = 1,
-			keyName = "inProgressEnabled",
-			name = "Enable \"In Progress\" Status",
+			keyName = "achievementInProgressEnabled",
+			name = "Enable Achievement \"In Progress\" Status",
 			description = "Achievements are labelled as \"In Progress\" when one or more requirements have been completed."
 	)
-	default boolean inProgressEnabled() { return true; }
+	default boolean achievementInProgressEnabled() { return true; }
 
 	@ConfigItem(
 			position = 2,
+			keyName = "requirementInProgressEnabled",
+			name = "Enable Requirement \"In Progress\" Status",
+			description = "Requirements are labelled as \"In Progress\" when partially completed (if applicable)."
+	)
+	default boolean requirementInProgressEnabled() { return true; }
+
+	@ConfigItem(
+			position = 3,
 			keyName = "notificationsEnabled",
 			name = "Enable Chat Notifications",
 			description = "Enable notification messages in the chatbox."
@@ -51,7 +67,7 @@ public interface CustomAchievementsConfig extends Config
 	default boolean notificationsEnabled() { return true; }
 
 	@ConfigItem(
-			position = 3,
+			position = 4,
 			keyName = "notificationsColor",
 			name = "Chat Notification Color",
 			description = "The color applied to messages in the chatbox when unlocking an achievement."

@@ -23,37 +23,10 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-package com.customachievements.requirements;
+package com.customachievements;
 
-import lombok.Getter;
-import lombok.Setter;
-
-@Getter
-@Setter
-public class AbstractRequirement extends Requirement
+public interface StatusListener
 {
-	private String name;
-
-	public AbstractRequirement(String name)
-	{
-		this(name, false);
-	}
-
-	public AbstractRequirement(String name, boolean complete)
-	{
-		super(RequirementType.ABSTRACT, complete);
-		this.name = name;
-	}
-
-	@Override
-	public Requirement deepCopy()
-	{
-		return new AbstractRequirement(name, complete);
-	}
-
-	@Override
-	public String toString()
-	{
-		return name.isEmpty() ? super.toString() : name;
-	}
+	void onComplete();
+	void onUpdated();
 }

@@ -25,81 +25,90 @@
  */
 package com.customachievements.requirements;
 
+import com.customachievements.events.KilledNpc;
 import lombok.Getter;
 import lombok.Setter;
 import net.runelite.api.Client;
-import net.runelite.api.Skill;
-import net.runelite.api.events.StatChanged;
+import net.runelite.api.NPC;
 import net.runelite.client.eventbus.Subscribe;
 
 @Getter
 @Setter
-public class SkillRequirement extends Requirement
+public class SlayRequirement extends Requirement
 {
-	private Skill skill;
-	private SkillTargetType targetType;
-	private int target;
+	private String name;
+	private int quantity;
+	private int count;
 
-	public SkillRequirement(
-			Skill skill,
-			SkillTargetType targetType,
-			int target)
+	public SlayRequirement(String name, int quantity)
 	{
-		this(skill, targetType, target, false);
+		this(name, quantity, 0, false);
 	}
 
-	public SkillRequirement(
-			Skill skill,
-			SkillTargetType targetType,
-			int target,
-			boolean complete)
+	public SlayRequirement(String name, int quantity, int count, boolean complete)
 	{
-		super(RequirementType.SKILL, complete);
-		this.skill = skill;
-		this.targetType = targetType;
-		this.target = target;
+		super(RequirementType.SLAY, complete);
+		this.name = name;
+		this.quantity = quantity;
+		this.count = count;
 	}
 
 	@Subscribe
-	public void onStatChanged(final StatChanged statChanged)
+	public void onKilledNpc(final KilledNpc killedNpc)
 	{
-		if (!complete && skill.equals(statChanged.getSkill()))
+		final NPC npc = killedNpc.getNpc();
+
+		if (!complete && name.equalsIgnoreCase(npc.getName()))
 		{
-			if ((targetType == SkillTargetType.LEVEL && statChanged.getLevel() >= target) ||
-				(targetType == SkillTargetType.XP && statChanged.getXp() >= target))
-			{
-				complete = true;
-				broadcastStatus();
-			}
+			count++;
+			checkStatus();
+			broadcastStatus();
 		}
 	}
 
 	@Override
 	public Requirement deepCopy()
 	{
-		return new SkillRequirement(skill, targetType, target, complete);
+		return new SlayRequirement(name, quantity, count, complete);
 	}
 
 	@Override
 	public void refresh(Client client)
 	{
-		if ((targetType == SkillTargetType.LEVEL && client.getRealSkillLevel(skill) >= target) ||
-			(targetType == SkillTargetType.XP && client.getSkillExperience(skill) >= target))
-		{
-			complete = true;
-		}
+		checkStatus();
+	}
+
+	@Override
+	public void reset()
+	{
+		super.reset();
+		count = 0;
 	}
 
 	@Override
 	public String toString()
 	{
-		if (targetType == SkillTargetType.LEVEL)
+		if (name.isEmpty())
 		{
-			return String.format("%d %s", target, skill.getName());
+			return super.toString();
 		}
 		else
 		{
-			return String.format("%d %s XP", target, skill.getName());
+			return String.format("Defeat %s %s (%d/%d)",
+					VOWELS.contains(Character.toLowerCase(name.charAt(0))) ? "an" : "a",
+					name,
+					complete ? quantity : Math.min(count, quantity),
+					quantity);
 		}
+	}
+
+	private void checkStatus()
+	{
+		if (count >= quantity)
+		{
+			complete = true;
+		}
+
+		inProgress = (count > 0);
 	}
 }
