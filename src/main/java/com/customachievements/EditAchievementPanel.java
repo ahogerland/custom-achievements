@@ -133,7 +133,6 @@ public class EditAchievementPanel extends JPanel
 
 		// Update Achievement status
 		plugin.globalRefresh();
-		target.checkStatus();
 		plugin.updateConfig();
 
 		notifyListeners(ACTION_UPDATE);

@@ -46,6 +46,7 @@ import net.runelite.api.Client;
 import net.runelite.api.GameState;
 import net.runelite.api.Hitsplat;
 import net.runelite.api.InventoryID;
+import net.runelite.api.ItemContainer;
 import net.runelite.api.NPC;
 import net.runelite.api.Quest;
 import net.runelite.api.QuestState;
@@ -302,6 +303,16 @@ public class CustomAchievementsPlugin extends Plugin
 
 	public void globalRefresh()
 	{
+		if (client.getGameState() == GameState.LOGGED_IN)
+		{
+			ItemContainer container = client.getItemContainer(InventoryID.INVENTORY);
+
+			if (container != null)
+			{
+				eventBus.post(new ItemContainerChanged(InventoryID.INVENTORY.getId(), container));
+			}
+		}
+
 		for (Achievement achievement : achievements)
 		{
 			achievement.refresh(client);
