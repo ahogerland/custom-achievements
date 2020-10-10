@@ -31,7 +31,6 @@ import java.awt.Dimension;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.GridLayout;
-import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
@@ -42,9 +41,12 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import javax.swing.BorderFactory;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
+import javax.swing.JComponent;
 import javax.swing.JFileChooser;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
@@ -52,6 +54,7 @@ import javax.swing.JPanel;
 import javax.swing.JSeparator;
 import javax.swing.JToggleButton;
 import javax.swing.filechooser.FileNameExtensionFilter;
+import javax.swing.plaf.basic.BasicSeparatorUI;
 
 import com.customachievements.requirements.Requirement;
 import lombok.extern.slf4j.Slf4j;
@@ -61,14 +64,14 @@ import net.runelite.client.ui.FontManager;
 import net.runelite.client.ui.PluginPanel;
 import net.runelite.client.util.ImageUtil;
 import net.runelite.client.util.SwingUtil;
-import net.runelite.client.util.ColorUtil;
 
 @Slf4j
 public class CustomAchievementsPanel extends PluginPanel
 {
-	public static final int ENTRY_HEIGHT = 18;
+	public static final int LIST_ENTRY_HEIGHT = 18;
+	public static final int LIST_ENTRY_GAP = LIST_ENTRY_HEIGHT + 1;
 	public static final int BUTTON_WIDTH = 24;
-	public static final int INDENT_WIDTH = 16;
+	public static final int INDENT_WIDTH = 40;
 
 	private static final ImageIcon IMPORT_ICON;
 	private static final ImageIcon IMPORT_ICON_HOVER;
@@ -83,6 +86,8 @@ public class CustomAchievementsPanel extends PluginPanel
 	private static final ImageIcon EDIT_ICON_SELECTED;
 	private static final ImageIcon MINI_EDIT_ICON;
 	private static final ImageIcon MINI_EDIT_ICON_FADED;
+	private static final ImageIcon DRAG_ICON;
+	private static final ImageIcon DRAG_ICON_FADED;
 	private static final ImageIcon EXPAND_ICON;
 	private static final ImageIcon COLLAPSE_ICON;
 
@@ -100,6 +105,9 @@ public class CustomAchievementsPanel extends PluginPanel
 	private final JButton addButton = new JButton();
 	private final JToggleButton editToggle = new JToggleButton();
 
+	private final List<JSeparator> insertionIndicators = new ArrayList<>();
+	private boolean dragging = false;
+
 	private final CustomAchievementsPlugin plugin;
 	private final CustomAchievementsConfig config;
 
@@ -116,6 +124,7 @@ public class CustomAchievementsPanel extends PluginPanel
 		final BufferedImage miniEditImage = ImageUtil.getResourceStreamFromClass(CustomAchievementsPlugin.class, "mini_edit_icon.png");
 		final BufferedImage expandImage = ImageUtil.getResourceStreamFromClass(CustomAchievementsPlugin.class, "expand_icon.png");
 		final BufferedImage collapseImage = ImageUtil.getResourceStreamFromClass(CustomAchievementsPlugin.class, "collapse_icon.png");
+		final BufferedImage dragImage = ImageUtil.getResourceStreamFromClass(CustomAchievementsPlugin.class, "drag_icon.png");
 
 		IMPORT_ICON = new ImageIcon(importImage);
 		IMPORT_ICON_HOVER = new ImageIcon(ImageUtil.alphaOffset(importImage, 0.5f));
@@ -135,6 +144,9 @@ public class CustomAchievementsPanel extends PluginPanel
 
 		MINI_EDIT_ICON = new ImageIcon(miniEditImage);
 		MINI_EDIT_ICON_FADED = new ImageIcon(ImageUtil.alphaOffset(miniEditImage, 0.2f));
+
+		DRAG_ICON = new ImageIcon(dragImage);
+		DRAG_ICON_FADED = new ImageIcon(ImageUtil.alphaOffset(dragImage, 0.2f));
 
 		EXPAND_ICON = new ImageIcon(ImageUtil.luminanceScale(expandImage, 0.4f));
 		COLLAPSE_ICON = new ImageIcon(ImageUtil.luminanceScale(collapseImage, 0.4f));
@@ -185,7 +197,7 @@ public class CustomAchievementsPanel extends PluginPanel
 		blurbWrapper.setLayout(new BorderLayout());
 
 		achievementsPanel.setLayout(new GridBagLayout());
-		achievementsPanel.setBorder(BorderFactory.createEmptyBorder(8, 0, 0, 0));
+		achievementsPanel.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 0));
 		achievementsPanel.setBackground(ColorScheme.DARKER_GRAY_COLOR);
 
 		title.setForeground(Color.WHITE);
@@ -346,6 +358,7 @@ public class CustomAchievementsPanel extends PluginPanel
 	public void refresh()
 	{
 		achievementsPanel.removeAll();
+		insertionIndicators.clear();
 
 		final GridBagConstraints gbc = new GridBagConstraints();
 		gbc.fill = GridBagConstraints.HORIZONTAL;
@@ -365,10 +378,17 @@ public class CustomAchievementsPanel extends PluginPanel
 		}
 		else
 		{
+			final List<Achievement> achievements = plugin.getAchievements();
+
 			JPanel wrapper;
 			ActionListener expandCallback;
 			ActionListener editCallback;
 			ActionListener removeCallback;
+
+			JSeparator indicator;
+			DragAdapter<Achievement> achievementDragAdapter;
+			DragAdapter<Requirement> requirementDragAdapter;
+			int rows = 1;
 
 			// Re-enable actions
 			enableActions(true);
@@ -376,10 +396,14 @@ public class CustomAchievementsPanel extends PluginPanel
 			title.setText(TITLE_MAIN);
 			blurb.setText(BLURB_USAGE);
 
-			for (Achievement achievement : plugin.getAchievements())
+			for (int i = 0; i < achievements.size(); i++, rows++)
 			{
+				Achievement achievement = achievements.get(i);
+
 				// Update Achievement status
 				achievement.checkStatus();
+
+				JLabel achievementLabel = createAchievementLabel(achievement);
 
 				expandCallback = e -> {
 					achievement.setUiExpanded(!achievement.isUiExpanded());
@@ -397,41 +421,96 @@ public class CustomAchievementsPanel extends PluginPanel
 					refresh();
 				};
 
-				wrapper = createExpandableListEntryWrapper(createAchievementLabel(achievement),
+				achievementDragAdapter = new DragAdapter<Achievement>(i, achievements)
+				{
+					@Override
+					public int indicatorIndex(int listIndex)
+					{
+						int index = 0;
+
+						for (int i = 0; i < listIndex; i++, index++)
+						{
+							Achievement achievement = achievements.get(i);
+
+							if (achievement.isUiExpanded())
+							{
+								index += achievement.getRequirements().size();
+							}
+						}
+
+						return index;
+					}
+				};
+
+				wrapper = createExpandableListEntryWrapper(
+						achievementLabel,
 						expandCallback,
 						editCallback,
 						removeCallback,
-						0,
+						achievementDragAdapter,
 						achievement.isUiExpanded());
+
+				achievementDragAdapter.setHighlightComponent(wrapper);
+
+				indicator = createInsertionIndicator();
+				achievementsPanel.add(indicator, gbc);
+				gbc.gridy++;
 
 				achievementsPanel.add(wrapper, gbc);
 				gbc.gridy++;
 
 				if (achievement.isUiExpanded())
 				{
-					// TODO: Allow sub-requirements. Maybe just have a dedicated edit form for requirements
-					for (Requirement requirement : achievement.getRequirements())
+					List<Requirement> requirements = achievement.getRequirements();
+
+					for (int j = 0; j < requirements.size(); j++)
 					{
+						Requirement requirement = requirements.get(j);
+						JLabel requirementLabel = createRequirementLabel(achievement, requirement);
+
 						removeCallback = e -> {
 							plugin.removeRequirement(achievement, requirement);
 							refresh();
 						};
 
-						wrapper = createListEntryWrapper(createRequirementLabel(achievement, requirement),
+						final int indicatorStart = rows;
+						requirementDragAdapter = new DragAdapter<Requirement>(j, requirements)
+						{
+							@Override
+							public int indicatorIndex(int listIndex)
+							{
+								return indicatorStart + listIndex;
+							}
+						};
+
+						wrapper = createListEntryWrapper(
+								requirementLabel,
 								editCallback,
 								removeCallback,
-								1,
-								BUTTON_WIDTH);
+								requirementDragAdapter,
+								1);
+
+						requirementDragAdapter.setHighlightComponent(wrapper);
+
+						indicator = createInsertionIndicator();
+						achievementsPanel.add(indicator, gbc);
+						gbc.gridy++;
 
 						achievementsPanel.add(wrapper, gbc);
 						gbc.gridy++;
 					}
+
+					rows += requirements.size();
 				}
 			}
+
+			indicator = createInsertionIndicator();
+			achievementsPanel.add(indicator, gbc);
+			gbc.gridy++;
 		}
 
-		repaint();
 		revalidate();
+		repaint();
 	}
 
 	private void enableActions(boolean enable)
@@ -460,7 +539,10 @@ public class CustomAchievementsPanel extends PluginPanel
 			@Override
 			public void mouseEntered(MouseEvent e)
 			{
-				label.setForeground(Color.WHITE);
+				if (!dragging)
+				{
+					label.setForeground(Color.WHITE);
+				}
 			}
 
 			@Override
@@ -499,7 +581,10 @@ public class CustomAchievementsPanel extends PluginPanel
 			@Override
 			public void mouseEntered(MouseEvent e)
 			{
-				label.setForeground(Color.WHITE);
+				if (!dragging)
+				{
+					label.setForeground(Color.WHITE);
+				}
 			}
 
 			@Override
@@ -512,15 +597,26 @@ public class CustomAchievementsPanel extends PluginPanel
 		return label;
 	}
 
-	private JPanel createExpandableListEntryWrapper(
-			final JLabel label,
-			final ActionListener expandCallback,
-			final ActionListener editCallback,
-			final ActionListener removeCallback,
-			final int indent,
-			final boolean expanded)
+	private JSeparator createInsertionIndicator()
 	{
-		final JPanel wrapper = createListEntryWrapper(label, editCallback, removeCallback, indent);
+		final JSeparator indicator = new JSeparator();
+
+		indicator.setUI(new BasicSeparatorUI());
+		indicator.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+		insertionIndicators.add(indicator);
+
+		return indicator;
+	}
+
+	private <T> JPanel createExpandableListEntryWrapper(
+			JLabel label,
+			ActionListener expandCallback,
+			ActionListener editCallback,
+			ActionListener removeCallback,
+			DragAdapter<T> dragAdapter,
+			boolean expanded)
+	{
+		final JPanel wrapper = createListEntryWrapper(label, editCallback, removeCallback, dragAdapter, 0);
 
 		final JButton expandButton = new JButton(expanded ? COLLAPSE_ICON : EXPAND_ICON);
 		SwingUtil.removeButtonDecorations(expandButton);
@@ -533,82 +629,48 @@ public class CustomAchievementsPanel extends PluginPanel
 		return wrapper;
 	}
 
-	private JPanel createListEntryWrapper(
-			final JLabel label,
-			final ActionListener editCallback,
-			final ActionListener removeCallback,
-			final int indent)
-	{
-		return createListEntryWrapper(label, editCallback, removeCallback, indent, 0);
-	}
-
-	private JPanel createListEntryWrapper(final JLabel label,
-										  final ActionListener editCallback,
-										  final ActionListener removeCallback,
-										  final int indent,
-										  final int offset)
+	private <T> JPanel createListEntryWrapper(
+			JLabel label,
+			ActionListener editCallback,
+			ActionListener removeCallback,
+			DragAdapter<T> dragAdapter,
+			int indent)
 	{
 		final JPanel wrapper = new JPanel(new BorderLayout());
 		wrapper.setBackground(ColorScheme.DARKER_GRAY_COLOR);
-		wrapper.setBorder(BorderFactory.createEmptyBorder(0, Math.max(0, (indent * INDENT_WIDTH) + offset), 2, 0));
-		wrapper.setPreferredSize(new Dimension(getPreferredSize().width, ENTRY_HEIGHT));
+		wrapper.setBorder(BorderFactory.createEmptyBorder(0, Math.max(0, indent * INDENT_WIDTH), 2, 0));
+		wrapper.setPreferredSize(new Dimension(getPreferredSize().width, LIST_ENTRY_HEIGHT));
+
+		label.setBorder(BorderFactory.createEmptyBorder(1, 0, 0, 0));
 
 		if (editToggle.isSelected())
 		{
-			JPanel editWrapper = new JPanel(new GridLayout(1, 2));
-			editWrapper.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+			JPanel editWrapper = new JPanel(new GridLayout(1, 3, -4, 0));
+			editWrapper.setOpaque(false);
 
 			JButton editButton = new JButton(MINI_EDIT_ICON_FADED);
-			JButton removeButton = new JButton(REMOVE_ICON_FADED);
-
 			SwingUtil.removeButtonDecorations(editButton);
-			editButton.setPreferredSize(new Dimension(BUTTON_WIDTH, wrapper.getHeight()));
+			editButton.setPreferredSize(new Dimension(BUTTON_WIDTH, LIST_ENTRY_HEIGHT));
+			editButton.setRolloverIcon(MINI_EDIT_ICON);
 			editButton.setToolTipText("Edit");
-			editButton.addMouseListener(new MouseAdapter()
-			{
-				@Override
-				public void mousePressed(MouseEvent e)
-				{
-					editCallback.actionPerformed(new ActionEvent(e.getSource(), e.getID(), e.paramString()));
-				}
+			editButton.addActionListener(editCallback);
 
-				@Override
-				public void mouseEntered(MouseEvent e)
-				{
-					editButton.setIcon(MINI_EDIT_ICON);
-				}
-
-				@Override
-				public void mouseExited(MouseEvent e)
-				{
-					editButton.setIcon(MINI_EDIT_ICON_FADED);
-				}
-			});
-
+			JButton removeButton = new JButton(REMOVE_ICON_FADED);
 			SwingUtil.removeButtonDecorations(removeButton);
-			removeButton.setPreferredSize(new Dimension(BUTTON_WIDTH, wrapper.getHeight()));
+			removeButton.setPreferredSize(new Dimension(BUTTON_WIDTH, LIST_ENTRY_HEIGHT));
+			removeButton.setRolloverIcon(REMOVE_ICON);
 			removeButton.setToolTipText("Remove");
-			removeButton.addMouseListener(new MouseAdapter()
-			{
-				@Override
-				public void mousePressed(MouseEvent e)
-				{
-					removeCallback.actionPerformed(new ActionEvent(e.getSource(), e.getID(), e.paramString()));
-				}
+			removeButton.addActionListener(removeCallback);
 
-				@Override
-				public void mouseEntered(MouseEvent e)
-				{
-					removeButton.setIcon(REMOVE_ICON);
-				}
+			JButton dragButton = new JButton(DRAG_ICON_FADED);
+			SwingUtil.removeButtonDecorations(dragButton);
+			dragButton.setPreferredSize(new Dimension(BUTTON_WIDTH, LIST_ENTRY_HEIGHT));
+			dragButton.setRolloverIcon(DRAG_ICON);
+			dragButton.setToolTipText("Drag");
+			dragButton.addMouseListener(dragAdapter);
+			dragButton.addMouseMotionListener(dragAdapter);
 
-				@Override
-				public void mouseExited(MouseEvent e)
-				{
-					removeButton.setIcon(REMOVE_ICON_FADED);
-				}
-			});
-
+			editWrapper.add(dragButton);
 			editWrapper.add(editButton);
 			editWrapper.add(removeButton);
 			wrapper.add(editWrapper, BorderLayout.EAST);
@@ -619,8 +681,108 @@ public class CustomAchievementsPanel extends PluginPanel
 		return wrapper;
 	}
 
-	private static String wrapTextWithColor(String text, Color color)
+	private abstract class DragAdapter<T> extends MouseAdapter
 	{
-		return String.format("<font color=%s>%s</font>", ColorUtil.colorToHexCode(color), text);
+		private static final int HALF_LIST_ENTRY_GAP = LIST_ENTRY_GAP / 2;
+
+		private final int index;
+		private final List<T> list;
+		private JComponent component;
+
+		private int selectedIndex;
+		private JSeparator indicator;
+
+		public DragAdapter(int index, List<T> list)
+		{
+			this(index, list, null);
+		}
+
+		public DragAdapter(int index, List<T> list, JComponent component)
+		{
+			this.index = index;
+			this.list = list;
+			this.component = component;
+			this.selectedIndex = index;
+			this.indicator = null;
+		}
+
+		/**
+		 * Returns the insertion indicator index given list index. Must handle values between 0 and list.size().
+		 */
+		public abstract int indicatorIndex(int listIndex);
+
+		public void setHighlightComponent(JComponent component)
+		{
+			this.component = component;
+		}
+
+		@Override
+		public void mousePressed(MouseEvent e)
+		{
+			selectedIndex = index;
+			indicator = insertionIndicators.get(indicatorIndex(index));
+
+			if (component != null)
+			{
+				component.setBackground(ColorScheme.DARKER_GRAY_HOVER_COLOR);
+			}
+
+			dragging = true;
+		}
+
+		@Override
+		public void mouseReleased(MouseEvent e)
+		{
+			if (selectedIndex > index)
+			{
+				// Directional offset
+				selectedIndex -= 1;
+			}
+
+			if (selectedIndex != index)
+			{
+				list.add(selectedIndex, list.remove(index));
+			}
+
+			dragging = false;
+			refresh();
+		}
+
+		@Override
+		public void mouseDragged(MouseEvent e)
+		{
+			int screenY = e.getYOnScreen();
+			int indicatorY = indicator.getLocationOnScreen().y;
+
+			JSeparator nextIndicator;
+			int nextIndex;
+			int distance;
+
+			if (screenY - indicatorY > 0)
+			{
+				nextIndex = Math.min(list.size(), selectedIndex + 1);
+				nextIndicator = insertionIndicators.get(indicatorIndex(nextIndex));
+				distance = nextIndicator.getLocationOnScreen().y - screenY;
+			}
+			else
+			{
+				nextIndex = Math.max(0, selectedIndex - 1);
+				nextIndicator = insertionIndicators.get(indicatorIndex(nextIndex));
+				distance = screenY - nextIndicator.getLocationOnScreen().y;
+			}
+
+			if (distance <= HALF_LIST_ENTRY_GAP)
+			{
+				selectedIndex = nextIndex;
+				setIndicator(nextIndicator);
+			}
+		}
+
+		private void setIndicator(JSeparator separator)
+		{
+			indicator.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+			indicator = separator;
+			indicator.setBackground(Color.RED);
+		}
 	}
 }
