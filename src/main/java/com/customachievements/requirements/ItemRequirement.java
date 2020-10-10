@@ -48,7 +48,7 @@ public class ItemRequirement extends Requirement
 
 	public ItemRequirement(String name, int quantity)
 	{
-		this(name, quantity, 0, ItemTrackingOption.DROPPED, false);
+		this(name, quantity, 0, ItemTrackingOption.INVENTORY, false);
 	}
 
 	public ItemRequirement(
