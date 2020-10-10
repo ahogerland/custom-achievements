@@ -28,6 +28,7 @@ package com.customachievements;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
+import java.awt.Dimension;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.GridLayout;
@@ -68,6 +69,10 @@ import net.runelite.client.ui.ColorScheme;
 import net.runelite.client.ui.FontManager;
 import net.runelite.client.ui.components.FlatTextField;
 import net.runelite.client.util.ImageUtil;
+import net.runelite.client.util.SwingUtil;
+
+import static com.customachievements.CustomAchievementsPanel.LIST_ENTRY_HEIGHT;
+import static com.customachievements.CustomAchievementsPanel.BUTTON_WIDTH;
 
 public class EditAchievementPanel extends JPanel
 {
@@ -75,6 +80,8 @@ public class EditAchievementPanel extends JPanel
 	public static final String ACTION_CANCEL = "ACTION_CANCEL";
 
 	private static final ImageIcon ADD_ICON;
+	private static final ImageIcon REMOVE_ICON;
+	private static final ImageIcon REMOVE_ICON_FADED;
 
 	private final List<ActionListener> listeners = new ArrayList<>();
 
@@ -88,7 +95,12 @@ public class EditAchievementPanel extends JPanel
 	static
 	{
 		final BufferedImage addImage = ImageUtil.getResourceStreamFromClass(CustomAchievementsPlugin.class, "add_icon.png");
+		final BufferedImage removeImage = ImageUtil.getResourceStreamFromClass(CustomAchievementsPlugin.class, "mini_remove_icon.png");
+
 		ADD_ICON = new ImageIcon(addImage);
+
+		REMOVE_ICON = new ImageIcon(removeImage);
+		REMOVE_ICON_FADED = new ImageIcon(ImageUtil.alphaOffset(removeImage, 0.2f));
 	}
 
 	EditAchievementPanel(final CustomAchievementsPlugin plugin, final Achievement target)
@@ -257,10 +269,23 @@ public class EditAchievementPanel extends JPanel
 		wrapper.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
 		wrapper.setBackground(ColorScheme.DARKER_GRAY_COLOR);
 
+		final JPanel titleWrapper = new JPanel(new BorderLayout());
+		titleWrapper.setOpaque(false);
+
 		final JLabel nameLabel = new JLabel(String.format("%s %s", requirement.getType(), "Requirement"));
 		nameLabel.setForeground(ColorScheme.BRAND_ORANGE);
 		nameLabel.setBackground(ColorScheme.DARKER_GRAY_COLOR);
 		nameLabel.setFont(FontManager.getRunescapeSmallFont());
+
+		JButton removeButton = new JButton(REMOVE_ICON_FADED);
+		SwingUtil.removeButtonDecorations(removeButton);
+		removeButton.setPreferredSize(new Dimension(BUTTON_WIDTH, LIST_ENTRY_HEIGHT));
+		removeButton.setRolloverIcon(REMOVE_ICON);
+		removeButton.setToolTipText("Remove");
+		removeButton.addActionListener(e -> {
+			dummy.removeRequirement(requirement);
+			refresh();
+		});
 
 		JPanel requirementPanel;
 
@@ -283,7 +308,9 @@ public class EditAchievementPanel extends JPanel
 				requirementPanel = createAbstractRequirementPanel((AbstractRequirement) requirement);
 		}
 
-		wrapper.add(nameLabel, BorderLayout.NORTH);
+		titleWrapper.add(nameLabel, BorderLayout.WEST);
+		titleWrapper.add(removeButton, BorderLayout.EAST);
+		wrapper.add(titleWrapper, BorderLayout.NORTH);
 		wrapper.add(requirementPanel, BorderLayout.CENTER);
 
 		return wrapper;
@@ -541,7 +568,7 @@ public class EditAchievementPanel extends JPanel
 	private JPanel createConfirmationPanel()
 	{
 		final JPanel wrapper = new JPanel(new BorderLayout());
-		wrapper.setBorder(BorderFactory.createEmptyBorder(20, 14, 0, 14));
+		wrapper.setBorder(BorderFactory.createEmptyBorder(20, 14, 14, 14));
 		wrapper.setBackground(ColorScheme.DARKER_GRAY_COLOR);
 
 		final JButton confirmButton = new JButton("Confirm");
