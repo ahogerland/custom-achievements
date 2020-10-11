@@ -38,6 +38,8 @@ import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 import javax.swing.BorderFactory;
 import javax.swing.DefaultListCellRenderer;
@@ -84,6 +86,9 @@ public class EditAchievementPanel extends JPanel
 
 	private final List<ActionListener> listeners = new ArrayList<>();
 
+	private final Skill[] orderedSkills;
+	private final Comparator<Skill> skillComparator;
+
 	private final CustomAchievementsPlugin plugin;
 
 	@Getter
@@ -107,6 +112,10 @@ public class EditAchievementPanel extends JPanel
 		this.plugin = plugin;
 		this.target = target;
 		this.dummy = new Achievement(target);
+
+		orderedSkills = Skill.values().clone();
+		skillComparator = Comparator.comparing(Skill::getName);
+		Arrays.sort(orderedSkills, skillComparator);
 
 		setLayout(new GridBagLayout());
 
@@ -327,10 +336,10 @@ public class EditAchievementPanel extends JPanel
 		final JPanel optionsPanel = new JPanel(new GridLayout(1, 2));
 		wrapper.setBackground(ColorScheme.DARKER_GRAY_COLOR);
 
-		final JComboBox<Skill> skillComboBox = new JComboBox<>(Skill.values());
+		final JComboBox<Skill> skillComboBox = new JComboBox<>(orderedSkills);
 		skillComboBox.setForeground(Color.WHITE);
 		skillComboBox.setBackground(ColorScheme.DARK_GRAY_COLOR);
-		skillComboBox.setSelectedIndex(requirement.getSkill().ordinal());
+		skillComboBox.setSelectedIndex(Arrays.binarySearch(orderedSkills, requirement.getSkill(), skillComparator));
 		skillComboBox.setToolTipText("Skill");
 		skillComboBox.addActionListener(e -> {
 			requirement.setSkill((Skill) skillComboBox.getSelectedItem());
