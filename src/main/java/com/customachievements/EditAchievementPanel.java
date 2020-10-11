@@ -148,20 +148,13 @@ public class EditAchievementPanel extends JPanel
 		gbc.gridx = 0;
 		gbc.gridy = 0;
 
-		final JLabel topSeparator = new JLabel();
-		final JLabel bottomSeparator = new JLabel();
-		final MatteBorder separatorBorder = BorderFactory.createMatteBorder(4, 0, 4, 0, ColorScheme.DARK_GRAY_COLOR);
-
-		topSeparator.setBorder(separatorBorder);
-		bottomSeparator.setBorder(separatorBorder);
-
 		add(createAchievementNamePanel(), gbc);
 		gbc.gridy++;
 
 		add(createAutoCompletionCheckBox(), gbc);
 		gbc.gridy++;
 
-		add(topSeparator, gbc);
+		add(createSeparator(ColorScheme.DARK_GRAY_COLOR), gbc);
 		gbc.gridy++;
 
 		for (Requirement requirement : dummy.getRequirements())
@@ -172,7 +165,7 @@ public class EditAchievementPanel extends JPanel
 
 		if (!dummy.getRequirements().isEmpty())
 		{
-			add(bottomSeparator, gbc);
+			add(createSeparator(ColorScheme.DARK_GRAY_COLOR), gbc);
 			gbc.gridy++;
 		}
 
@@ -180,6 +173,10 @@ public class EditAchievementPanel extends JPanel
 		gbc.gridy++;
 
 		add(createConfirmationPanel(), gbc);
+		gbc.gridy++;
+
+		add(createSeparator(ColorScheme.DARKER_GRAY_COLOR), gbc);
+		gbc.gridy++;
 
 		repaint();
 		revalidate();
@@ -200,19 +197,27 @@ public class EditAchievementPanel extends JPanel
 		}
 	}
 
+	private JLabel createSeparator(Color color)
+	{
+		final JLabel separator = new JLabel();
+
+		separator.setBorder(BorderFactory.createMatteBorder(4, 0, 4, 0, color));
+		return separator;
+	}
+
 	private JPanel createAchievementNamePanel()
 	{
-		final JPanel wrapper = new JPanel(new BorderLayout());
+		final JPanel wrapper = new JPanel(new GridLayout(2, 1));
 		wrapper.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
 		wrapper.setBackground(ColorScheme.DARKER_GRAY_COLOR);
 
 		final JLabel nameLabel = new JLabel("Achievement Name");
-		final FlatTextField nameInput = new FlatTextField();
-
 		nameLabel.setForeground(ColorScheme.BRAND_ORANGE);
 		nameLabel.setBackground(ColorScheme.DARKER_GRAY_COLOR);
 		nameLabel.setFont(FontManager.getRunescapeSmallFont());
 
+		final FlatTextField nameInput = new FlatTextField();
+		nameInput.getTextField().setBorder(BorderFactory.createEmptyBorder(2, 0, 2, 0));
 		nameInput.setText(dummy.getName());
 		nameInput.setBackground(ColorScheme.DARK_GRAY_COLOR);
 		nameInput.setHoverBackgroundColor(ColorScheme.DARK_GRAY_HOVER_COLOR);
@@ -231,8 +236,8 @@ public class EditAchievementPanel extends JPanel
 			}
 		});
 
-		wrapper.add(nameLabel, BorderLayout.NORTH);
-		wrapper.add(nameInput, BorderLayout.CENTER);
+		wrapper.add(nameLabel);
+		wrapper.add(nameInput);
 
 		return wrapper;
 	}
@@ -330,7 +335,7 @@ public class EditAchievementPanel extends JPanel
 		skillComboBox.setToolTipText("Skill");
 		skillComboBox.addActionListener(e -> {
 			requirement.setSkill((Skill) skillComboBox.getSelectedItem());
-			requirement.setComplete(false);
+			requirement.reset();
 			refresh();
 		});
 
@@ -341,7 +346,7 @@ public class EditAchievementPanel extends JPanel
 		targetTypeComboBox.setToolTipText("Target Type");
 		targetTypeComboBox.addActionListener(e -> {
 			requirement.setTargetType((SkillTargetType) targetTypeComboBox.getSelectedItem());
-			requirement.setComplete(false);
+			requirement.reset();
 			refresh();
 		});
 
@@ -351,7 +356,7 @@ public class EditAchievementPanel extends JPanel
 		valueSpinner.setToolTipText("Target Value");
 		valueSpinner.addChangeListener(e -> {
 			requirement.setTarget((int) valueSpinner.getValue());
-			requirement.setComplete(false);
+			requirement.reset();
 			refresh();
 		});
 
@@ -387,7 +392,7 @@ public class EditAchievementPanel extends JPanel
 			public void keyReleased(KeyEvent e)
 			{
 				requirement.setName(nameInput.getText());
-				requirement.setComplete(false);
+				requirement.reset();
 			}
 		});
 
@@ -414,7 +419,7 @@ public class EditAchievementPanel extends JPanel
 		trackingComboBox.setRenderer(new ItemTrackingOptionComboBoxRenderer());
 		trackingComboBox.addActionListener(e -> {
 			requirement.setTrackingOption((ItemTrackingOption) trackingComboBox.getSelectedItem());
-			requirement.setComplete(false);
+			requirement.reset();
 			refresh();
 		});
 
@@ -452,7 +457,7 @@ public class EditAchievementPanel extends JPanel
 			public void keyReleased(KeyEvent e)
 			{
 				requirement.setName(nameInput.getText());
-				requirement.setComplete(false);
+				requirement.reset();
 			}
 		});
 
@@ -518,7 +523,7 @@ public class EditAchievementPanel extends JPanel
 			public void keyReleased(KeyEvent e)
 			{
 				requirement.setName(nameInput.getText());
-				requirement.setComplete(false);
+				requirement.reset();
 			}
 		});
 

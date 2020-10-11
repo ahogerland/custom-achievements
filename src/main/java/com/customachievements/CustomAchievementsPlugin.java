@@ -50,12 +50,14 @@ import net.runelite.api.ItemContainer;
 import net.runelite.api.NPC;
 import net.runelite.api.Quest;
 import net.runelite.api.QuestState;
+import net.runelite.api.ScriptID;
 import net.runelite.api.Skill;
 import net.runelite.api.events.ActorDeath;
 import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.events.HitsplatApplied;
 import net.runelite.api.events.ItemContainerChanged;
+import net.runelite.api.events.ScriptPostFired;
 import net.runelite.api.events.WidgetLoaded;
 import net.runelite.api.widgets.WidgetID;
 import net.runelite.client.chat.ChatColorType;
@@ -140,6 +142,9 @@ public class CustomAchievementsPlugin extends Plugin
 
 	// Quest state tracking
 	private final Map<Integer, QuestState> questStateCache = new HashMap<>();
+
+	// Tick timestamp on login
+	private int loginTickCount = 0;
 
 	private CustomAchievementsPanel panel;
 	private NavigationButton navigationButton;
@@ -266,7 +271,7 @@ public class CustomAchievementsPlugin extends Plugin
 
 	public void sendAchievementCompleteMessage(final Achievement achievement)
 	{
-		if (client.getGameState() == GameState.LOGGED_IN && config.notificationsEnabled())
+		if (ready() && config.notificationsEnabled())
 		{
 			final Color notificationsColor = config.notificationsColor();
 
@@ -286,7 +291,7 @@ public class CustomAchievementsPlugin extends Plugin
 
 	public void sendRequirementCompleteMessage(final Requirement requirement)
 	{
-		if (client.getGameState() == GameState.LOGGED_IN && config.notificationsEnabled())
+		if (ready() && config.notificationsEnabled())
 		{
 			final String message = new ChatMessageBuilder()
 					.append(ChatColorType.HIGHLIGHT)
@@ -318,6 +323,8 @@ public class CustomAchievementsPlugin extends Plugin
 			achievement.refresh(client);
 			achievement.checkStatus();
 		}
+
+		SwingUtilities.invokeLater(panel::refresh);
 	}
 
 	@Schedule(
@@ -459,9 +466,9 @@ public class CustomAchievementsPlugin extends Plugin
 	}
 
 	@Subscribe
-	public void onGameStateChanged(final GameStateChanged gameStateChanged)
+	public void onScriptPostFired(final ScriptPostFired scriptPostFired)
 	{
-		if (gameStateChanged.getGameState() == GameState.LOGGED_IN)
+		if (scriptPostFired.getScriptId() == ScriptID.QUESTLIST_PROGRESS_LIST_SHOW)
 		{
 			for (Quest quest : Quest.values())
 			{
@@ -469,7 +476,15 @@ public class CustomAchievementsPlugin extends Plugin
 			}
 
 			globalRefresh();
-			SwingUtilities.invokeLater(panel::refresh);
+		}
+	}
+
+	@Subscribe
+	public void onGameStateChanged(final GameStateChanged gameStateChanged)
+	{
+		if (gameStateChanged.getGameState() == GameState.LOGGED_IN)
+		{
+			loginTickCount = client.getTickCount();
 		}
 	}
 
@@ -497,6 +512,14 @@ public class CustomAchievementsPlugin extends Plugin
 		clearAchievements();
 		clientToolbar.removeNavigation(navigationButton);
 		questStateCache.clear();
+	}
+
+	private boolean ready()
+	{
+		int ticksElapsed = client.getTickCount() - loginTickCount;
+
+		// Wait a few game ticks for everything to update
+		return ticksElapsed > 2 && client.getGameState() == GameState.LOGGED_IN;
 	}
 
 	private void updateQuestTracking()

@@ -157,7 +157,7 @@ public class CustomAchievementsPanel extends PluginPanel
 				+ "</html>";
 
 		BLURB_EDIT = "<html>"
-				+ "NOTE: Editing Requirements will NOT overwrite accumulated progress."
+				+ "NOTE: Progress made toward a Requirement will NOT be overwritten ONLY when editing quantity attributes."
 				+ "</html>";
 	}
 
@@ -533,6 +533,7 @@ public class CustomAchievementsPanel extends PluginPanel
 			{
 				achievement.setForceComplete(!achievement.isForceComplete());
 				achievement.checkStatus();
+				plugin.updateConfig();
 				refresh();
 			}
 
@@ -575,6 +576,7 @@ public class CustomAchievementsPanel extends PluginPanel
 					requirement.setComplete(true);
 				}
 
+				plugin.updateConfig();
 				refresh();
 			}
 
@@ -745,6 +747,7 @@ public class CustomAchievementsPanel extends PluginPanel
 			}
 
 			dragging = false;
+			plugin.updateConfig();
 			refresh();
 		}
 
