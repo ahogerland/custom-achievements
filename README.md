@@ -78,3 +78,6 @@ The Achievement Editor is used to add/modify the name, requirements, and setting
 Edit Mode can be toggled via the "Toggle Edit Mode" button in the action menu. This enables achievement/requirement reordering, editing, and removal through each respective button provided to the right of each entry.
 
 Clicking on the edit button for a requirement will open the Achievement Editor for the parent achievement - from which the requirement can be edited.
+
+## Known Issues
+- Logging into an account immediately after logging out of another may cause the previous account's stats to populate the achievements. This is due to a caching issue. Make sure to save your achievement data often if swap between multiple accounts frequently.
