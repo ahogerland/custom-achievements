@@ -407,6 +407,7 @@ public class CustomAchievementsPanel extends PluginPanel
 
 				expandCallback = e -> {
 					achievement.setUiExpanded(!achievement.isUiExpanded());
+					plugin.updateConfig();
 					refresh();
 				};
 
@@ -418,6 +419,7 @@ public class CustomAchievementsPanel extends PluginPanel
 
 				removeCallback = e -> {
 					plugin.removeAchievement(achievement);
+					plugin.updateConfig();
 					refresh();
 				};
 
@@ -470,6 +472,7 @@ public class CustomAchievementsPanel extends PluginPanel
 
 						removeCallback = e -> {
 							plugin.removeRequirement(achievement, requirement);
+							plugin.updateConfig();
 							refresh();
 						};
 

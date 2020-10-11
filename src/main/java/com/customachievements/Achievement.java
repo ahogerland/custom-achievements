@@ -99,12 +99,6 @@ public class Achievement
 
 	public void checkStatus()
 	{
-		if (forceComplete)
-		{
-			complete = true;
-			return;
-		}
-
 		boolean completeStatus = true;
 		inProgress = false;
 
@@ -121,21 +115,26 @@ public class Achievement
 			}
 		}
 
-		if (!complete && completeStatus)
+		if (autoCompleted && !complete && completeStatus)
 		{
 			// TODO: Add a config setting to enable this when auto complete is disabled.
-			complete = autoCompleted;
+			complete = true;
 			broadcastStatus();
 		}
 		else
 		{
-			complete = completeStatus && autoCompleted;
+			complete = completeStatus;
+		}
+
+		if (complete)
+		{
+			forceComplete = false;
 		}
 	}
 
 	public Color getColor(final CustomAchievementsConfig config)
 	{
-		if (complete)
+		if (complete || forceComplete)
 		{
 			return ColorScheme.PROGRESS_COMPLETE_COLOR;
 		}

@@ -50,7 +50,6 @@ import javax.swing.JList;
 import javax.swing.JPanel;
 import javax.swing.JSpinner;
 import javax.swing.SpinnerNumberModel;
-import javax.swing.border.MatteBorder;
 
 import com.customachievements.requirements.AbstractRequirement;
 import com.customachievements.requirements.ItemRequirement;

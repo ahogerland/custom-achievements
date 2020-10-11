@@ -80,7 +80,7 @@ public abstract class Requirement
 		{
 			return ColorScheme.PROGRESS_COMPLETE_COLOR;
 		}
-		else if (parent.isComplete())
+		else if (parent.isComplete() || parent.isForceComplete())
 		{
 			return ColorScheme.LIGHT_GRAY_COLOR;
 		}

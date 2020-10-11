@@ -98,16 +98,21 @@ public class AchievementSerializer
 
 				JsonElement name = jsonAchievement.get("name");
 				JsonElement complete = jsonAchievement.get("complete");
+				JsonElement inProgress = jsonAchievement.get("inProgress");
+				JsonElement forceComplete = jsonAchievement.get("forceComplete");
 				JsonElement autoCompleted = jsonAchievement.get("autoCompleted");
 				JsonElement uiExpanded = jsonAchievement.get("uiExpanded");
 
-				if (name == null || complete == null || autoCompleted == null || uiExpanded == null)
+				if (name == null || complete == null || inProgress == null ||
+					forceComplete == null || autoCompleted == null || uiExpanded == null)
 				{
 					throw new JsonParseException("Invalid Achievement JSON");
 				}
 
 				Achievement achievement = new Achievement(name.getAsString());
 				achievement.setComplete(complete.getAsBoolean());
+				achievement.setInProgress(inProgress.getAsBoolean());
+				achievement.setForceComplete(forceComplete.getAsBoolean());
 				achievement.setAutoCompleted(autoCompleted.getAsBoolean());
 				achievement.setUiExpanded(uiExpanded.getAsBoolean());
 
