@@ -33,6 +33,8 @@ import net.runelite.api.Quest;
 import net.runelite.api.QuestState;
 import net.runelite.client.eventbus.Subscribe;
 
+import static com.customachievements.AchievementState.*;
+
 @Getter
 @Setter
 public class QuestRequirement extends Requirement
@@ -41,25 +43,14 @@ public class QuestRequirement extends Requirement
 
 	public QuestRequirement(Quest quest)
 	{
-		this(quest, false);
-	}
-
-	public QuestRequirement(Quest quest, boolean complete)
-	{
-		super(RequirementType.QUEST, complete);
+		super(RequirementType.QUEST);
 		this.quest = quest;
 	}
 
-	@Override
-	public void setComplete(boolean complete)
+	public QuestRequirement(QuestRequirement other)
 	{
-		// Do nothing. Pseudo-private field.
-	}
-
-	@Override
-	public void setInProgress(boolean inProgress)
-	{
-		// Do nothing. Pseudo-private field.
+		super(other);
+		this.quest = other.quest;
 	}
 
 	@Subscribe
@@ -67,27 +58,21 @@ public class QuestRequirement extends Requirement
 	{
 		if (questStateChanged.getQuest() == quest)
 		{
-			checkStatus(questStateChanged.getState());
-			broadcastStatus();
+			updateState(questStateChanged.getState());
+			refresh();
 		}
+	}
+
+	@Override
+	public void forceUpdate(Client client)
+	{
+		updateState(quest.getState(client));
 	}
 
 	@Override
 	public Requirement deepCopy()
 	{
-		return new QuestRequirement(quest, complete);
-	}
-
-	@Override
-	public void refresh(Client client)
-	{
-		checkStatus(quest.getState(client));
-	}
-
-	@Override
-	public void reset()
-	{
-		// Do nothing. Quest progress is unidirectional.
+		return new QuestRequirement(this);
 	}
 
 	@Override
@@ -96,17 +81,18 @@ public class QuestRequirement extends Requirement
 		return String.format("Complete %s", quest.getName());
 	}
 
-	public void checkStatus(QuestState state)
+	private void updateState(QuestState state)
 	{
-		complete = inProgress = false;
-
 		switch (state)
 		{
 			case FINISHED:
-				complete = true;
+				setProgress(COMPLETE);
 				break;
 			case IN_PROGRESS:
-				inProgress = true;
+				setProgress(IN_PROGRESS);
+				break;
+			default:
+				setProgress(INCOMPLETE);
 		}
 	}
 }

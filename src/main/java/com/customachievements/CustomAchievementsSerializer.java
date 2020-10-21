@@ -33,49 +33,49 @@ import com.customachievements.requirements.RequirementType;
 import com.customachievements.requirements.SkillRequirement;
 import com.customachievements.requirements.SlayRequirement;
 import com.google.gson.GsonBuilder;
-import com.google.gson.JsonArray;
 import com.google.gson.JsonDeserializationContext;
 import com.google.gson.JsonDeserializer;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
+import com.google.gson.JsonSerializationContext;
+import com.google.gson.JsonSerializer;
 import com.google.gson.reflect.TypeToken;
 import lombok.extern.slf4j.Slf4j;
 
 import java.lang.reflect.Type;
-import java.util.ArrayList;
 import java.util.List;
 
 @Slf4j
-public class AchievementSerializer
+public class CustomAchievementsSerializer
 {
 	private final GsonBuilder builder;
-	private final Type achievementListType;
+	private final Type listType;
 
-	public AchievementSerializer()
+	public CustomAchievementsSerializer()
 	{
 		this.builder = new GsonBuilder();
-		this.achievementListType = new TypeToken<List<Achievement>>() {}.getType();
+		this.listType = new TypeToken<List<AchievementElement>>() {}.getType();
 
-		builder.registerTypeAdapter(achievementListType, new AchievementListDeserializer());
+		builder.registerTypeAdapter(AchievementElement.class, new AchievementElementTypeAdapter());
 	}
 
-	public AchievementSerializer setPrettyPrinting()
+	public CustomAchievementsSerializer setPrettyPrinting()
 	{
 		builder.setPrettyPrinting();
 		return this;
 	}
 
-	public String toJson(List<Achievement> achievements)
+	public String toJson(List<AchievementElement> entries)
 	{
-		return builder.create().toJson(achievements);
+		return builder.create().toJson(entries);
 	}
 
-	public List<Achievement> fromJson(String json)
+	public List<AchievementElement> fromJson(String json)
 	{
 		try
 		{
-			return builder.create().fromJson(json, achievementListType);
+			return builder.create().fromJson(json, listType);
 		}
 		catch (JsonParseException e)
 		{
@@ -84,47 +84,27 @@ public class AchievementSerializer
 		}
 	}
 
-	private static class AchievementListDeserializer implements JsonDeserializer<List<Achievement>>
+	private static class AchievementElementTypeAdapter implements JsonSerializer<AchievementElement>, JsonDeserializer<AchievementElement>
 	{
 		@Override
-		public List<Achievement> deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext context) throws JsonParseException
+		public JsonElement serialize(AchievementElement src, Type typeOfSrc, JsonSerializationContext context)
 		{
-			final List<Achievement> achievements = new ArrayList<>();
-			final JsonArray jsonArray = json.getAsJsonArray();
+			return context.serialize(src);
+		}
 
-			for (JsonElement jsonAchievementElement : jsonArray)
+		@Override
+		public AchievementElement deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext context) throws JsonParseException
+		{
+			final JsonObject jsonObject = json.getAsJsonObject();
+
+			if (jsonObject.get("type") != null)
 			{
-				JsonObject jsonAchievement = jsonAchievementElement.getAsJsonObject();
-
-				JsonElement name = jsonAchievement.get("name");
-				JsonElement complete = jsonAchievement.get("complete");
-				JsonElement inProgress = jsonAchievement.get("inProgress");
-				JsonElement forceComplete = jsonAchievement.get("forceComplete");
-				JsonElement autoCompleted = jsonAchievement.get("autoCompleted");
-				JsonElement uiExpanded = jsonAchievement.get("uiExpanded");
-
-				if (name == null || complete == null || inProgress == null ||
-					forceComplete == null || autoCompleted == null || uiExpanded == null)
-				{
-					throw new JsonParseException("Invalid Achievement JSON");
-				}
-
-				Achievement achievement = new Achievement(name.getAsString());
-				achievement.setComplete(complete.getAsBoolean());
-				achievement.setInProgress(inProgress.getAsBoolean());
-				achievement.setForceComplete(forceComplete.getAsBoolean());
-				achievement.setAutoCompleted(autoCompleted.getAsBoolean());
-				achievement.setUiExpanded(uiExpanded.getAsBoolean());
-
-				for (JsonElement jsonRequirementElement : jsonAchievement.get("requirements").getAsJsonArray())
-				{
-					achievement.addRequirement(deserializeRequirement(jsonRequirementElement, context));
-				}
-
-				achievements.add(achievement);
+				return deserializeRequirement(json, context);
 			}
-
-			return achievements;
+			else
+			{
+				return context.deserialize(json, Achievement.class);
+			}
 		}
 
 		private Requirement deserializeRequirement(JsonElement json, JsonDeserializationContext context) throws JsonParseException

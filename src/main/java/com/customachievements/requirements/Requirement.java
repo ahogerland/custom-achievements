@@ -25,131 +25,88 @@
  */
 package com.customachievements.requirements;
 
-import java.awt.Color;
 import java.util.Set;
 
-import com.customachievements.Achievement;
+import com.customachievements.AchievementState;
 import com.customachievements.CustomAchievementsConfig;
-import com.customachievements.StatusListener;
+import com.customachievements.AchievementElement;
 import com.google.common.collect.ImmutableSet;
-import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
 import net.runelite.api.Client;
-import net.runelite.client.ui.ColorScheme;
+import net.runelite.client.chat.ChatColorType;
+import net.runelite.client.chat.ChatMessageBuilder;
+
+import static com.customachievements.AchievementState.*;
 
 @Getter
 @Setter
-public abstract class Requirement
+public abstract class Requirement extends AchievementElement
 {
 	protected static final Set<Character> VOWELS = ImmutableSet.of('a', 'e', 'i', 'o', 'u');
 	protected static final String NAME_UNKNOWN = "???";
 
-	protected RequirementType type;
-	protected boolean complete;
-	protected boolean inProgress;
-
-	@Getter(AccessLevel.NONE)
-	protected transient StatusListener statusListener;
+	private RequirementType type;
+	private AchievementState progress;
 
 	public Requirement(RequirementType type)
 	{
-		this(type, false);
-	}
-
-	public Requirement(RequirementType type, boolean complete)
-	{
+		super();
 		this.type = type;
-		this.complete = complete;
-		this.inProgress = false;
+		this.progress = INCOMPLETE;
 	}
 
-	public abstract Requirement deepCopy();
+	public Requirement(Requirement other)
+	{
+		super(other);
+		this.type = other.type;
+		this.progress = other.progress;
+	}
 
-	public void refresh(Client client) {}
+	public abstract void forceUpdate(Client client);
+	public abstract AchievementElement deepCopy();
+	public abstract String toString();
 
+	@Override
 	public void reset()
 	{
-		complete = false;
-		inProgress = false;
+		super.reset();
+		progress = INCOMPLETE;
 	}
 
-	public Color getColor(Achievement parent, final CustomAchievementsConfig config)
+	@Override
+	public void refresh()
 	{
-		if (complete)
+		AchievementState childrenState = getChildrenState();
+
+		if (isForceComplete())
 		{
-			return ColorScheme.PROGRESS_COMPLETE_COLOR;
+			if (progress == COMPLETE && childrenState == COMPLETE)
+			{
+				setForceComplete(false);
+			}
+
+			setState(COMPLETE);
 		}
-		else if (parent.isComplete() || parent.isForceComplete())
+		else if (!getChildren().isEmpty() &&
+					((progress == COMPLETE && childrenState != COMPLETE) ||
+						(progress == INCOMPLETE && childrenState != INCOMPLETE)))
 		{
-			return ColorScheme.LIGHT_GRAY_COLOR;
-		}
-		else if (inProgress && config.requirementInProgressEnabled())
-		{
-			return ColorScheme.PROGRESS_INPROGRESS_COLOR;
+			setState(IN_PROGRESS);
 		}
 		else
 		{
-			return ColorScheme.PROGRESS_ERROR_COLOR;
-		}
-	}
-
-	public String getStatus(Achievement parent, final CustomAchievementsConfig config)
-	{
-		if (complete)
-		{
-			return "Complete";
-		}
-		else if (parent.isComplete())
-		{
-			return "Skipped";
-		}
-		else if (inProgress && config.requirementInProgressEnabled())
-		{
-			return "In Progress";
-		}
-		else
-		{
-			return "Incomplete";
+			setState(progress);
 		}
 	}
 
 	@Override
-	public String toString()
+	public String completionChatMessage(CustomAchievementsConfig config)
 	{
-		return NAME_UNKNOWN;
-	}
-
-	public void setStatusListener(StatusListener listener)
-	{
-		statusListener = listener;
-	}
-
-	protected void broadcastStatus()
-	{
-		if (complete)
-		{
-			broadcastComplete();
-		}
-		else if (inProgress)
-		{
-			broadcastUpdated();
-		}
-	}
-
-	protected void broadcastComplete()
-	{
-		if (statusListener != null)
-		{
-			statusListener.onComplete();
-		}
-	}
-
-	protected void broadcastUpdated()
-	{
-		if (statusListener != null)
-		{
-			statusListener.onUpdated();
-		}
+		return new ChatMessageBuilder()
+				.append(ChatColorType.HIGHLIGHT)
+				.append("Achievement Requirement complete: ")
+				.append(config.notificationsColor(), toString())
+				.build();
 	}
 }

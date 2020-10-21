@@ -60,8 +60,6 @@ import net.runelite.api.events.ItemContainerChanged;
 import net.runelite.api.events.ScriptPostFired;
 import net.runelite.api.events.WidgetLoaded;
 import net.runelite.api.widgets.WidgetID;
-import net.runelite.client.chat.ChatColorType;
-import net.runelite.client.chat.ChatMessageBuilder;
 import net.runelite.client.chat.ChatMessageManager;
 import net.runelite.client.chat.QueuedMessage;
 import net.runelite.client.config.ConfigManager;
@@ -83,7 +81,6 @@ import net.runelite.http.api.loottracker.LootRecordType;
 
 import javax.inject.Inject;
 import javax.swing.SwingUtilities;
-import java.awt.Color;
 import java.awt.image.BufferedImage;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -108,10 +105,10 @@ import java.util.stream.Collectors;
 public class CustomAchievementsPlugin extends Plugin
 {
 	@Getter
-	private final List<Achievement> achievements = new ArrayList<>();
+	private final List<AchievementElement> elements = new ArrayList<>();
 
 	@Getter
-	private final AchievementSerializer serializer = new AchievementSerializer().setPrettyPrinting();
+	private final CustomAchievementsSerializer serializer = new CustomAchievementsSerializer().setPrettyPrinting();
 
 	@Inject
 	private ItemManager itemManager;
@@ -178,66 +175,97 @@ public class CustomAchievementsPlugin extends Plugin
 		}
 	}
 
-	public void clearAchievements()
+	public void clear()
 	{
-		while (!achievements.isEmpty())
+		while (!elements.isEmpty())
 		{
-			removeAchievement(achievements.get(achievements.size() - 1));
+			remove(elements.get(elements.size() - 1));
 		}
 	}
 
-	public void addAchievement(Achievement achievement)
+	public void add(AchievementElement element)
 	{
-		if (!achievements.contains(achievement))
+		elements.add(element);
+		register(element);
+		registerChildren(element);
+	}
+
+	public void add(AchievementElement parent, AchievementElement child)
+	{
+		parent.addChild(child);
+		register(child);
+		registerChildren(child);
+	}
+
+	public void remove(AchievementElement element)
+	{
+		unregister(element);
+		unregisterChildren(element);
+		elements.remove(element);
+	}
+
+	public void remove(AchievementElement parent, AchievementElement child)
+	{
+		unregister(child);
+		unregisterChildren(child);
+		parent.removeChild(child);
+	}
+
+	public void set(int index, AchievementElement element)
+	{
+		AchievementElement old = elements.get(index);
+
+		unregister(old);
+		unregisterChildren(old);
+		elements.set(index, element);
+		register(element);
+		registerChildren(element);
+	}
+
+	public void set(int index, AchievementElement parent, AchievementElement child)
+	{
+		AchievementElement old = parent.getChild(index);
+
+		unregister(old);
+		unregisterChildren(old);
+		parent.setChild(index, child);
+		register(child);
+		registerChildren(child);
+	}
+
+	public void register(AchievementElement element)
+	{
+		eventBus.register(element);
+		element.setStateListener(new AchievementElementStateListener(element));
+	}
+
+	public void registerChildren(AchievementElement parent)
+	{
+		for (AchievementElement child : parent.getChildren())
 		{
-			achievements.add(achievement);
-			achievement.setStatusListener(new AchievementStatusListener(achievement));
+			registerChildren(child);
+			register(child);
 		}
 	}
 
-	public void removeAchievement(Achievement achievement)
+	public void unregister(AchievementElement element)
 	{
-		removeAllRequirements(achievement);
-		achievements.remove(achievement);
+		eventBus.unregister(element);
+		element.setStateListener(null);
 	}
 
-	public void addRequirement(Achievement achievement, Requirement requirement)
+	public void unregisterChildren(AchievementElement parent)
 	{
-		if (!achievement.getRequirements().contains(requirement))
+		for (AchievementElement child : parent.getChildren())
 		{
-			eventBus.register(requirement);
-			achievement.addRequirement(requirement);
-			requirement.setStatusListener(new RequirementStatusListener(achievement, requirement));
+			unregisterChildren(child);
+			unregister(child);
 		}
-	}
-
-	public void addAllRequirements(Achievement achievement, Collection<Requirement> requirements)
-	{
-		for (Requirement requirement : requirements)
-		{
-			addRequirement(achievement, requirement);
-		}
-	}
-
-	public void removeRequirement(Achievement achievement, Requirement requirement)
-	{
-		eventBus.unregister(requirement);
-		achievement.removeRequirement(requirement);
-	}
-
-	public void removeAllRequirements(Achievement achievement)
-	{
-		for (Requirement requirement : achievement.getRequirements())
-		{
-			eventBus.unregister(requirement);
-		}
-
-		achievement.getRequirements().clear();
 	}
 
 	public void updateConfig()
 	{
-		config.achievementsData(serializer.toJson(achievements));
+		config.achievementsData(serializer.toJson(elements));
 	}
 
 	public void loadConfig(String json)
@@ -247,21 +275,20 @@ public class CustomAchievementsPlugin extends Plugin
 			return;
 		}
 
-		List<Achievement> loaded = serializer.fromJson(json);
+		List<AchievementElement> loaded = serializer.fromJson(json);
 
 		if (loaded != null)
 		{
-			clearAchievements();
+			clear();
 
-			for (Achievement achievement : loaded)
+			for (AchievementElement element : loaded)
 			{
-				achievements.add(achievement);
-				achievement.setStatusListener(new AchievementStatusListener(achievement));
+				add(element);
 
-				for (Requirement requirement : achievement.getRequirements())
+				for (AchievementElement child : element.getChildren())
 				{
-					eventBus.register(requirement);
-					requirement.setStatusListener(new RequirementStatusListener(achievement, requirement));
+					eventBus.register(child);
+					child.setStateListener(new AchievementElementStateListener(child));
 				}
 			}
 		}
@@ -269,36 +296,10 @@ public class CustomAchievementsPlugin extends Plugin
 		panel.refresh();
 	}
 
-	public void sendAchievementCompleteMessage(final Achievement achievement)
+	public void sendCompletionMessage(String message)
 	{
 		if (ready() && config.notificationsEnabled())
 		{
-			final Color notificationsColor = config.notificationsColor();
-
-			final String message = new ChatMessageBuilder()
-					.append(ChatColorType.HIGHLIGHT)
-					.append(notificationsColor, "Congratulations! You have completed ")
-					.append(notificationsColor, achievement.getName())
-					.append(notificationsColor, ". Your Achievements have been updated.")
-					.build();
-
-			chatMessageManager.queue(QueuedMessage.builder()
-					.type(ChatMessageType.GAMEMESSAGE)
-					.runeLiteFormattedMessage(message)
-					.build());
-		}
-	}
-
-	public void sendRequirementCompleteMessage(final Requirement requirement)
-	{
-		if (ready() && config.notificationsEnabled())
-		{
-			final String message = new ChatMessageBuilder()
-					.append(ChatColorType.HIGHLIGHT)
-					.append("Achievement Requirement complete: ")
-					.append(config.notificationsColor(), requirement.toString())
-					.build();
-
 			chatMessageManager.queue(QueuedMessage.builder()
 					.type(ChatMessageType.GAMEMESSAGE)
 					.runeLiteFormattedMessage(message)
@@ -318,11 +319,7 @@ public class CustomAchievementsPlugin extends Plugin
 			}
 		}
 
-		for (Achievement achievement : achievements)
-		{
-			achievement.refresh(client);
-			achievement.checkStatus();
-		}
+		updateAchievementElements(elements);
 
 		SwingUtilities.invokeLater(panel::refresh);
 	}
@@ -509,7 +506,7 @@ public class CustomAchievementsPlugin extends Plugin
 	protected void shutDown()
 	{
 		updateConfig();
-		clearAchievements();
+		clear();
 		clientToolbar.removeNavigation(navigationButton);
 		questStateCache.clear();
 	}
@@ -539,6 +536,21 @@ public class CustomAchievementsPlugin extends Plugin
 		}
 	}
 
+	private void updateAchievementElements(List<AchievementElement> list)
+	{
+		for (AchievementElement element : list)
+		{
+			updateAchievementElements(element.getChildren());
+
+			if (element instanceof Requirement)
+			{
+				((Requirement) element).forceUpdate(client);
+			}
+
+			element.refresh();
+		}
+	}
+
 	private NamedItem createNamedItem(int id, int quantity)
 	{
 		return new NamedItem(id, itemManager.getItemComposition(id).getName(), quantity);
@@ -557,47 +569,18 @@ public class CustomAchievementsPlugin extends Plugin
 	}
 
 	@AllArgsConstructor
-	private class AchievementStatusListener implements StatusListener
+	private class AchievementElementStateListener implements AchievementStateListener
 	{
-		private final Achievement achievement;
+		private final AchievementElement element;
 
 		@Override
-		public void onComplete()
+		public void onStateChanged(AchievementState status)
 		{
-			sendAchievementCompleteMessage(achievement);
-			onUpdated();
-		}
-
-		@Override
-		public void onUpdated()
-		{
-			updateConfig();
-			SwingUtilities.invokeLater(panel::refresh);
-		}
-	}
-
-	@AllArgsConstructor
-	private class RequirementStatusListener implements StatusListener
-	{
-		private final Achievement achievement;
-		private final Requirement requirement;
-
-		@Override
-		public void onComplete()
-		{
-			// Don't bother sending a completion message if the Requirement was manually skipped
-			if (!achievement.isForceComplete())
+			if (status == AchievementState.COMPLETE)
 			{
-				sendRequirementCompleteMessage(requirement);
-				achievement.checkStatus();
+				sendCompletionMessage(element.completionChatMessage(config));
 			}
 
-			onUpdated();
-		}
-
-		@Override
-		public void onUpdated()
-		{
 			updateConfig();
 			SwingUtilities.invokeLater(panel::refresh);
 		}

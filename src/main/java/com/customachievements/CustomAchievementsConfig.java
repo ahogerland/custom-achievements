@@ -72,7 +72,7 @@ public interface CustomAchievementsConfig extends Config
 			name = "Chat Notification Color",
 			description = "The color applied to messages in the chatbox when unlocking an achievement."
 	)
-	default Color notificationsColor() { return Color.decode("#902020"); }
+	default Color notificationsColor() { return new Color(120, 20, 120); }
 
 	@ConfigItem(
 			keyName = "achievementsData",

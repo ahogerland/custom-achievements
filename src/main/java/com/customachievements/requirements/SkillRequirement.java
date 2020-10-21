@@ -32,6 +32,8 @@ import net.runelite.api.Skill;
 import net.runelite.api.events.StatChanged;
 import net.runelite.client.eventbus.Subscribe;
 
+import static com.customachievements.AchievementState.COMPLETE;
+
 @Getter
 @Setter
 public class SkillRequirement extends Requirement
@@ -40,54 +42,50 @@ public class SkillRequirement extends Requirement
 	private SkillTargetType targetType;
 	private int target;
 
-	public SkillRequirement(
-			Skill skill,
-			SkillTargetType targetType,
-			int target)
+	public SkillRequirement(Skill skill, SkillTargetType targetType, int target)
 	{
-		this(skill, targetType, target, false);
-	}
-
-	public SkillRequirement(
-			Skill skill,
-			SkillTargetType targetType,
-			int target,
-			boolean complete)
-	{
-		super(RequirementType.SKILL, complete);
+		super(RequirementType.SKILL);
 		this.skill = skill;
 		this.targetType = targetType;
 		this.target = target;
 	}
 
+	public SkillRequirement(SkillRequirement other)
+	{
+		super(other);
+		this.skill = other.skill;
+		this.targetType = other.targetType;
+		this.target = other.target;
+	}
+
 	@Subscribe
 	public void onStatChanged(final StatChanged statChanged)
 	{
-		if (!complete && skill.equals(statChanged.getSkill()))
+		if (getProgress() != COMPLETE && skill.equals(statChanged.getSkill()))
 		{
 			if ((targetType == SkillTargetType.LEVEL && statChanged.getLevel() >= target) ||
 				(targetType == SkillTargetType.XP && statChanged.getXp() >= target))
 			{
-				complete = true;
-				broadcastStatus();
+				setProgress(COMPLETE);
+				refresh();
 			}
+		}
+	}
+
+	@Override
+	public void forceUpdate(Client client)
+	{
+		if ((targetType == SkillTargetType.LEVEL && client.getRealSkillLevel(skill) >= target) ||
+			(targetType == SkillTargetType.XP && client.getSkillExperience(skill) >= target))
+		{
+			setProgress(COMPLETE);
 		}
 	}
 
 	@Override
 	public Requirement deepCopy()
 	{
-		return new SkillRequirement(skill, targetType, target, complete);
-	}
-
-	@Override
-	public void refresh(Client client)
-	{
-		if ((targetType == SkillTargetType.LEVEL && client.getRealSkillLevel(skill) >= target) ||
-			(targetType == SkillTargetType.XP && client.getSkillExperience(skill) >= target))
-		{
-			complete = true;
-		}
+		return new SkillRequirement(this);
 	}
 
 	@Override

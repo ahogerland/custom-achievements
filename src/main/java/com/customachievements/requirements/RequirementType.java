@@ -25,9 +25,11 @@
  */
 package com.customachievements.requirements;
 
+import lombok.AllArgsConstructor;
 import lombok.Getter;
 
 @Getter
+@AllArgsConstructor
 public enum RequirementType
 {
 	NONE("Select a requirement type...", ""),
@@ -39,12 +41,6 @@ public enum RequirementType
 
 	private final String name;
 	private final String description;
-
-	RequirementType(String name, String description)
-	{
-		this.name = name;
-		this.description = description;
-	}
 
 	@Override
 	public String toString()

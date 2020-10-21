@@ -45,7 +45,6 @@ import javax.swing.BorderFactory;
 import javax.swing.DefaultListCellRenderer;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
-import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
 import javax.swing.JLabel;
 import javax.swing.JList;
@@ -62,7 +61,6 @@ import com.customachievements.requirements.RequirementType;
 import com.customachievements.requirements.SkillRequirement;
 import com.customachievements.requirements.SkillTargetType;
 import com.customachievements.requirements.SlayRequirement;
-import lombok.Getter;
 import lombok.NonNull;
 import net.runelite.api.Quest;
 import net.runelite.api.Skill;
@@ -91,10 +89,11 @@ public class EditAchievementPanel extends JPanel
 
 	private final CustomAchievementsPlugin plugin;
 
-	@Getter
-	private Achievement target;
-	private Achievement dummy;
-	private int dropdownIndex = 0;
+	private AchievementElement parent;
+	private AchievementElement target;
+	private int targetIndex;
+
+	private RequirementType selectedRequirementType = RequirementType.NONE;
 
 	static
 	{
@@ -107,11 +106,13 @@ public class EditAchievementPanel extends JPanel
 		REMOVE_ICON_FADED = new ImageIcon(ImageUtil.alphaOffset(removeImage, 0.2f));
 	}
 
-	EditAchievementPanel(final CustomAchievementsPlugin plugin, final Achievement target)
+	EditAchievementPanel(CustomAchievementsPlugin plugin)
 	{
 		this.plugin = plugin;
-		this.target = target;
-		this.dummy = new Achievement(target);
+
+		parent = null;
+		target = new Achievement("");
+		targetIndex = 0;
 
 		orderedSkills = Skill.values().clone();
 		skillComparator = Comparator.comparing(Skill::getName);
@@ -122,22 +123,39 @@ public class EditAchievementPanel extends JPanel
 		refresh();
 	}
 
-	public void setTarget(final Achievement target)
+	public void setTarget(int targetIndex, AchievementElement parent, AchievementElement target)
 	{
-		this.target = target;
-		this.dummy = new Achievement(target);
+		this.parent = parent;
+		this.target = target.deepCopy();
+		this.targetIndex = targetIndex;
 
 		refresh();
 	}
 
 	public void updateTarget()
 	{
-		target.setName(dummy.getName());
-		target.setAutoCompleted(dummy.isAutoCompleted());
-
-		plugin.removeAllRequirements(target);
-		plugin.addAllRequirements(target, dummy.getRequirements());
-		plugin.addAchievement(target); // Required for new Achievements
+		if (parent == null)
+		{
+			if (targetIndex < plugin.getElements().size())
+			{
+				plugin.set(targetIndex, target);
+			}
+			else
+			{
+				plugin.add(target);
+			}
+		}
+		else
+		{
+			if (targetIndex < parent.getChildren().size())
+			{
+				plugin.set(targetIndex, parent, target);
+			}
+			else
+			{
+				plugin.add(parent, target);
+			}
+		}
 
 		// Update Achievement status
 		plugin.globalRefresh();
@@ -156,28 +174,28 @@ public class EditAchievementPanel extends JPanel
 		gbc.gridx = 0;
 		gbc.gridy = 0;
 
-		add(createAchievementNamePanel(), gbc);
-		gbc.gridy++;
-
-		add(createAutoCompletionCheckBox(), gbc);
+		add(createTargetPanel(target), gbc);
 		gbc.gridy++;
 
 		add(createSeparator(ColorScheme.DARK_GRAY_COLOR), gbc);
 		gbc.gridy++;
 
-		for (Requirement requirement : dummy.getRequirements())
+		for (AchievementElement child : target.getChildren())
 		{
-			add(createRequirementPanel(requirement), gbc);
-			gbc.gridy++;
+			if (child instanceof Requirement)
+			{
+				add(createRequirementPanel((Requirement) child, parent != null), gbc);
+				gbc.gridy++;
+			}
 		}
 
-		if (!dummy.getRequirements().isEmpty())
+		if (!target.getChildren().isEmpty())
 		{
 			add(createSeparator(ColorScheme.DARK_GRAY_COLOR), gbc);
 			gbc.gridy++;
 		}
 
-		add(createAddRequirementPanel(), gbc);
+		add(createAddRequirementPanel(parent != null), gbc);
 		gbc.gridy++;
 
 		add(createConfirmationPanel(), gbc);
@@ -213,7 +231,23 @@ public class EditAchievementPanel extends JPanel
 		return separator;
 	}
 
-	private JPanel createAchievementNamePanel()
+	private JPanel createTargetPanel(final AchievementElement element)
+	{
+		if (element instanceof Achievement)
+		{
+			return createAchievementPanel((Achievement) element);
+		}
+		else if (element instanceof Requirement)
+		{
+			return createRequirementPanel((Requirement) element, false);
+		}
+		else
+		{
+			return new JPanel();
+		}
+	}
+
+	private JPanel createAchievementPanel(final Achievement achievement)
 	{
 		final JPanel wrapper = new JPanel(new GridLayout(2, 1));
 		wrapper.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
@@ -226,7 +260,7 @@ public class EditAchievementPanel extends JPanel
 
 		final FlatTextField nameInput = new FlatTextField();
 		nameInput.getTextField().setBorder(BorderFactory.createEmptyBorder(2, 0, 2, 0));
-		nameInput.setText(dummy.getName());
+		nameInput.setText(achievement.getName());
 		nameInput.setBackground(ColorScheme.DARK_GRAY_COLOR);
 		nameInput.setHoverBackgroundColor(ColorScheme.DARK_GRAY_HOVER_COLOR);
 		nameInput.addKeyListener(new KeyListener()
@@ -240,7 +274,7 @@ public class EditAchievementPanel extends JPanel
 			@Override
 			public void keyReleased(KeyEvent e)
 			{
-				dummy.setName(nameInput.getText());
+				achievement.setName(nameInput.getText());
 			}
 		});
 
@@ -250,6 +284,8 @@ public class EditAchievementPanel extends JPanel
 		return wrapper;
 	}
 
+	// TODO: Add this back if autoCompleted is reimplemented
+	/*
 	private JPanel createAutoCompletionCheckBox()
 	{
 		final JPanel wrapper = new JPanel(new BorderLayout());
@@ -266,16 +302,17 @@ public class EditAchievementPanel extends JPanel
 
 		final JCheckBox checkBox = new JCheckBox();
 		checkBox.setToolTipText(toolTip);
-		checkBox.setSelected(dummy.isAutoCompleted());
-		checkBox.addActionListener(e -> dummy.setAutoCompleted(checkBox.isSelected()));
+		checkBox.setSelected(target.isAutoCompleted());
+		checkBox.addActionListener(e -> target.setAutoCompleted(checkBox.isSelected()));
 
 		wrapper.add(nameLabel, BorderLayout.WEST);
 		wrapper.add(checkBox, BorderLayout.EAST);
 
 		return wrapper;
 	}
+	*/
 
-	private JPanel createRequirementPanel(final Requirement requirement)
+	private JPanel createRequirementPanel(final Requirement requirement, boolean sub)
 	{
 		final JPanel wrapper = new JPanel(new BorderLayout());
 		wrapper.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
@@ -284,7 +321,9 @@ public class EditAchievementPanel extends JPanel
 		final JPanel titleWrapper = new JPanel(new BorderLayout());
 		titleWrapper.setOpaque(false);
 
-		final JLabel nameLabel = new JLabel(String.format("%s %s", requirement.getType(), "Requirement"));
+		final JLabel nameLabel = new JLabel(String.format("%s %s",
+				requirement.getType(),
+				sub ? "Sub-Requirement" : "Requirement"));
 		nameLabel.setForeground(ColorScheme.BRAND_ORANGE);
 		nameLabel.setBackground(ColorScheme.DARKER_GRAY_COLOR);
 		nameLabel.setFont(FontManager.getRunescapeSmallFont());
@@ -295,7 +334,7 @@ public class EditAchievementPanel extends JPanel
 		removeButton.setRolloverIcon(REMOVE_ICON);
 		removeButton.setToolTipText("Remove");
 		removeButton.addActionListener(e -> {
-			dummy.removeRequirement(requirement);
+			target.removeChild(requirement);
 			refresh();
 		});
 
@@ -413,7 +452,7 @@ public class EditAchievementPanel extends JPanel
 		quantitySpinner.setToolTipText("Quantity");
 		quantitySpinner.addChangeListener(e -> {
 			requirement.setQuantity((int) quantitySpinner.getValue());
-			requirement.setComplete(false);
+			requirement.setProgress(AchievementState.INCOMPLETE);
 			refresh();
 		});
 
@@ -478,7 +517,7 @@ public class EditAchievementPanel extends JPanel
 		quantitySpinner.setToolTipText("Quantity");
 		quantitySpinner.addChangeListener(e -> {
 			requirement.setQuantity((int) quantitySpinner.getValue());
-			requirement.setComplete(false);
+			requirement.setProgress(AchievementState.INCOMPLETE);
 			refresh();
 		});
 
@@ -540,7 +579,7 @@ public class EditAchievementPanel extends JPanel
 		return wrapper;
 	}
 
-	private JPanel createAddRequirementPanel()
+	private JPanel createAddRequirementPanel(boolean sub)
 	{
 		final JPanel wrapper = new JPanel(new BorderLayout());
 		wrapper.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
@@ -548,24 +587,20 @@ public class EditAchievementPanel extends JPanel
 
 		final JComboBox<RequirementType> dropdown = new JComboBox<>(RequirementType.values());
 		dropdown.setBackground(ColorScheme.DARK_GRAY_COLOR);
-		dropdown.setSelectedIndex(dropdownIndex);
+		dropdown.setSelectedItem(selectedRequirementType);
 		dropdown.setRenderer(new RequirementTypeComboBoxRenderer());
 		dropdown.addActionListener(e -> {
-			dropdownIndex = dropdown.getSelectedIndex();
+			selectedRequirementType = (RequirementType) dropdown.getSelectedItem();
 			refresh();
 		});
 
-		final JButton submitButton = new JButton("Add Requirement", ADD_ICON);
-		submitButton.setEnabled(dropdownIndex != 0);
-		submitButton.setToolTipText("Add Requirement");
+		final JButton submitButton = new JButton(sub ? "Add Sub-Requirement" : "Add Requirement", ADD_ICON);
+		submitButton.setEnabled(selectedRequirementType != RequirementType.NONE);
 		submitButton.addActionListener(e -> {
 			if (dropdown.getSelectedItem() != null)
 			{
 				Requirement requirement = plugin.createRequirement((RequirementType) dropdown.getSelectedItem());
-
-				// Requirement does not need to be registered with the EventBus yet
-				// so we just naively add directly to the Achievement here
-				dummy.addRequirement(requirement);
+				target.addChild(requirement);
 			}
 
 			refresh();

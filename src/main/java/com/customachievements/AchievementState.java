@@ -23,58 +23,28 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-package com.customachievements.requirements;
+package com.customachievements;
 
+import lombok.AllArgsConstructor;
 import lombok.Getter;
-import lombok.Setter;
-import net.runelite.api.Client;
+import net.runelite.client.ui.ColorScheme;
 
-import static com.customachievements.AchievementState.COMPLETE;
-import static com.customachievements.AchievementState.INCOMPLETE;
+import java.awt.Color;
 
 @Getter
-@Setter
-public class AbstractRequirement extends Requirement
+@AllArgsConstructor
+public enum AchievementState
 {
-	private String name;
+	INCOMPLETE("Incomplete", ColorScheme.PROGRESS_ERROR_COLOR),
+	IN_PROGRESS("In Progress", ColorScheme.PROGRESS_INPROGRESS_COLOR),
+	COMPLETE("Complete", ColorScheme.PROGRESS_COMPLETE_COLOR);
 
-	public AbstractRequirement(String name)
-	{
-		super(RequirementType.ABSTRACT);
-		this.name = name;
-	}
-
-	public AbstractRequirement(AbstractRequirement other)
-	{
-		super(other);
-		this.name = other.name;
-	}
-
-	@Override
-	public void forceUpdate(Client client) {}
-
-	@Override
-	public void click()
-	{
-		if (getProgress() == INCOMPLETE)
-		{
-			setProgress(COMPLETE);
-		}
-		else
-		{
-			setProgress(INCOMPLETE);
-		}
-	}
-
-	@Override
-	public Requirement deepCopy()
-	{
-		return new AbstractRequirement(this);
-	}
+	private final String name;
+	private final Color color;
 
 	@Override
 	public String toString()
 	{
-		return name.isEmpty() ? NAME_UNKNOWN : name;
+		return name;
 	}
 }

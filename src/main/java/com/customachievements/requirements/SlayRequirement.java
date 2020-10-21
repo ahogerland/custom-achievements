@@ -32,6 +32,8 @@ import net.runelite.api.Client;
 import net.runelite.api.NPC;
 import net.runelite.client.eventbus.Subscribe;
 
+import static com.customachievements.AchievementState.*;
+
 @Getter
 @Setter
 public class SlayRequirement extends Requirement
@@ -42,15 +44,18 @@ public class SlayRequirement extends Requirement
 
 	public SlayRequirement(String name, int quantity)
 	{
-		this(name, quantity, 0, false);
-	}
-
-	public SlayRequirement(String name, int quantity, int count, boolean complete)
-	{
-		super(RequirementType.SLAY, complete);
+		super(RequirementType.SLAY);
 		this.name = name;
 		this.quantity = quantity;
-		this.count = count;
+		this.count = 0;
+	}
+
+	public SlayRequirement(SlayRequirement other)
+	{
+		super(other);
+		this.name = other.name;
+		this.quantity = other.quantity;
+		this.count = other.count;
 	}
 
 	@Subscribe
@@ -58,24 +63,24 @@ public class SlayRequirement extends Requirement
 	{
 		final NPC npc = killedNpc.getNpc();
 
-		if (!complete && name.equalsIgnoreCase(npc.getName()))
+		if (getProgress() != COMPLETE && name.equalsIgnoreCase(npc.getName()))
 		{
 			count++;
-			checkStatus();
-			broadcastStatus();
+			updateState();
+			broadcastState();
 		}
+	}
+
+	@Override
+	public void forceUpdate(Client client)
+	{
+		updateState();
 	}
 
 	@Override
 	public Requirement deepCopy()
 	{
-		return new SlayRequirement(name, quantity, count, complete);
-	}
-
-	@Override
-	public void refresh(Client client)
-	{
-		checkStatus();
+		return new SlayRequirement(this);
 	}
 
 	@Override
@@ -90,25 +95,31 @@ public class SlayRequirement extends Requirement
 	{
 		if (name.isEmpty())
 		{
-			return super.toString();
+			return NAME_UNKNOWN;
 		}
 		else
 		{
 			return String.format("Defeat %s %s (%d/%d)",
 					VOWELS.contains(Character.toLowerCase(name.charAt(0))) ? "an" : "a",
 					name,
-					complete ? quantity : Math.min(count, quantity),
+					getState() == COMPLETE ? quantity : Math.min(count, quantity),
 					quantity);
 		}
 	}
 
-	private void checkStatus()
+	private void updateState()
 	{
 		if (count >= quantity)
 		{
-			complete = true;
+			setProgress(COMPLETE);
 		}
-
-		inProgress = (count > 0);
+		else if (count > 0)
+		{
+			setProgress(IN_PROGRESS);
+		}
+		else
+		{
+			setProgress(INCOMPLETE);
+		}
 	}
 }

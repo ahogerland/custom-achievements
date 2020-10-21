@@ -25,185 +25,75 @@
  */
 package com.customachievements;
 
-import java.awt.Color;
-import java.util.ArrayList;
-import java.util.List;
-
-import com.customachievements.requirements.Requirement;
-import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
-import net.runelite.api.Client;
-import net.runelite.client.ui.ColorScheme;
+import net.runelite.client.chat.ChatColorType;
+import net.runelite.client.chat.ChatMessageBuilder;
+
+import java.awt.Color;
+
+import static com.customachievements.AchievementState.COMPLETE;
 
 @Getter
 @Setter
-public class Achievement
+public class Achievement extends AchievementElement
 {
 	private String name;
-	private boolean complete;
-	private boolean inProgress;
-	private boolean forceComplete;
-	private boolean autoCompleted;
-	private boolean uiExpanded;
-
-	@Getter(AccessLevel.NONE)
-	private transient StatusListener statusListener;
-
-	private final List<Requirement> requirements;
 
 	public Achievement(String name)
 	{
+		super();
 		this.name = name;
-		this.complete = false;
-		this.inProgress = false;
-		this.forceComplete = false;
-		this.autoCompleted = true;
-		this.uiExpanded = true;
-		this.requirements = new ArrayList<>();
 	}
 
 	public Achievement(Achievement other)
 	{
+		super(other);
 		this.name = other.name;
-		this.complete = other.complete;
-		this.inProgress = other.inProgress;
-		this.forceComplete = other.forceComplete;
-		this.autoCompleted = other.autoCompleted;
-		this.uiExpanded = other.uiExpanded;
-		this.requirements = new ArrayList<>();
+	}
 
-		for (Requirement requirement : other.requirements)
+	@Override
+	public void refresh()
+	{
+		AchievementState childrenState = getChildrenState();
+
+		if (isForceComplete())
 		{
-			this.requirements.add(requirement.deepCopy());
-		}
-	}
-
-	public void addRequirement(Requirement requirement)
-	{
-		requirements.add(requirement);
-	}
-
-	public void removeRequirement(Requirement requirement)
-	{
-		requirements.remove(requirement);
-	}
-
-	public void refresh(Client client)
-	{
-		for (Requirement requirement : requirements)
-		{
-			requirement.refresh(client);
-		}
-	}
-
-	public void checkStatus()
-	{
-		boolean completeStatus = true;
-		inProgress = false;
-
-		for (Requirement requirement : requirements)
-		{
-			if (!requirement.isComplete())
+			if (childrenState == COMPLETE)
 			{
-				completeStatus = false;
+				setForceComplete(false);
 			}
 
-			if (requirement.isComplete() || requirement.isInProgress())
-			{
-				inProgress = true;
-			}
-		}
-
-		if (autoCompleted && !complete && completeStatus)
-		{
-			// TODO: Add a config setting to enable this when auto complete is disabled.
-			complete = true;
-			broadcastStatus();
+			setState(COMPLETE);
 		}
 		else
 		{
-			complete = completeStatus;
-		}
-
-		if (complete)
-		{
-			forceComplete = false;
+			setState(childrenState);
 		}
 	}
 
-	public Color getColor(final CustomAchievementsConfig config)
+	@Override
+	public AchievementElement deepCopy()
 	{
-		if (complete || forceComplete)
-		{
-			return ColorScheme.PROGRESS_COMPLETE_COLOR;
-		}
-		else if (inProgress && config.achievementInProgressEnabled())
-		{
-			return ColorScheme.PROGRESS_INPROGRESS_COLOR;
-		}
-		else
-		{
-			return ColorScheme.PROGRESS_ERROR_COLOR;
-		}
+		return new Achievement(this);
 	}
 
-	public String getToolTip(final CustomAchievementsConfig config)
+	@Override
+	public String completionChatMessage(CustomAchievementsConfig config)
 	{
-		if (forceComplete)
-		{
-			return "Complete (Forced)";
-		}
-		else if (complete)
-		{
-			return "Complete";
-		}
-		else if (inProgress && config.achievementInProgressEnabled())
-		{
-			return "In Progress";
-		}
-		else
-		{
-			return "Incomplete";
-		}
+		final Color notificationsColor = config.notificationsColor();
+
+		return new ChatMessageBuilder()
+				.append(ChatColorType.HIGHLIGHT)
+				.append(notificationsColor, "Congratulations! You have completed ")
+				.append(notificationsColor, name)
+				.append(notificationsColor, ". Your Achievements have been updated.")
+				.build();
 	}
 
 	@Override
 	public String toString()
 	{
-		return String.format("%s%s", name, forceComplete ? " *" : "");
-	}
-
-	public void setStatusListener(StatusListener listener)
-	{
-		this.statusListener = listener;
-	}
-
-	protected void broadcastStatus()
-	{
-		if (complete)
-		{
-			broadcastComplete();
-		}
-		else if (inProgress)
-		{
-			broadcastUpdated();
-		}
-	}
-
-	protected void broadcastComplete()
-	{
-		if (statusListener != null)
-		{
-			statusListener.onComplete();
-		}
-	}
-
-	protected void broadcastUpdated()
-	{
-		if (statusListener != null)
-		{
-			statusListener.onUpdated();
-		}
+		return name;
 	}
 }

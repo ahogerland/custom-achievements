@@ -41,8 +41,12 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import javax.swing.BorderFactory;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
@@ -56,7 +60,6 @@ import javax.swing.JToggleButton;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.plaf.basic.BasicSeparatorUI;
 
-import com.customachievements.requirements.Requirement;
 import lombok.extern.slf4j.Slf4j;
 
 import net.runelite.client.ui.ColorScheme;
@@ -71,7 +74,7 @@ public class CustomAchievementsPanel extends PluginPanel
 	public static final int LIST_ENTRY_HEIGHT = 18;
 	public static final int LIST_ENTRY_GAP = LIST_ENTRY_HEIGHT + 1;
 	public static final int BUTTON_WIDTH = 24;
-	public static final int INDENT_WIDTH = 40;
+	public static final int INDENT_WIDTH = 24;
 
 	private static final ImageIcon IMPORT_ICON;
 	private static final ImageIcon IMPORT_ICON_HOVER;
@@ -106,6 +109,7 @@ public class CustomAchievementsPanel extends PluginPanel
 	private final JToggleButton editToggle = new JToggleButton();
 
 	private final List<JSeparator> insertionIndicators = new ArrayList<>();
+	private final Map<AchievementElement, Integer> insertionIndicatorIndexMap = new HashMap<>();
 	private boolean dragging = false;
 
 	private final CustomAchievementsPlugin plugin;
@@ -165,7 +169,7 @@ public class CustomAchievementsPanel extends PluginPanel
 	{
 		this.plugin = plugin;
 		this.config = config;
-		this.editAchievementPanel = new EditAchievementPanel(plugin, new Achievement("New Achievement"));
+		this.editAchievementPanel = new EditAchievementPanel(plugin);
 
 		// Start with edit panel hidden
 		editAchievementPanel.setVisible(false);
@@ -230,7 +234,7 @@ public class CustomAchievementsPanel extends PluginPanel
 		addButton.setToolTipText("Add New Achievement");
 		addButton.addActionListener(e -> {
 			editAchievementPanel.setVisible(true);
-			editAchievementPanel.setTarget(plugin.createAchievement("New Achievement"));
+			editAchievementPanel.setTarget(plugin.getElements().size(), null, plugin.createAchievement("New Achievement"));
 			refresh();
 		});
 
@@ -279,7 +283,7 @@ public class CustomAchievementsPanel extends PluginPanel
 			return;
 		}
 
-		if (!plugin.getAchievements().isEmpty())
+		if (!plugin.getElements().isEmpty())
 		{
 			int confirm = JOptionPane.showConfirmDialog(this,
 					"Are you sure you want to import this file? This action will DELETE all current achievements.",
@@ -359,6 +363,7 @@ public class CustomAchievementsPanel extends PluginPanel
 	{
 		achievementsPanel.removeAll();
 		insertionIndicators.clear();
+		insertionIndicatorIndexMap.clear();
 
 		final GridBagConstraints gbc = new GridBagConstraints();
 		gbc.fill = GridBagConstraints.HORIZONTAL;
@@ -378,17 +383,17 @@ public class CustomAchievementsPanel extends PluginPanel
 		}
 		else
 		{
-			final List<Achievement> achievements = plugin.getAchievements();
+			final Deque<Deque<AchievementElement>> stack = new ArrayDeque<>();
+			final Deque<AchievementElement> parents = new ArrayDeque<>();
+			Deque<AchievementElement> elements;
 
 			JPanel wrapper;
 			ActionListener expandCallback;
 			ActionListener editCallback;
 			ActionListener removeCallback;
+			DragAdapter<AchievementElement> dragAdapter;
 
 			JSeparator indicator;
-			DragAdapter<Achievement> achievementDragAdapter;
-			DragAdapter<Requirement> requirementDragAdapter;
-			int rows = 1;
 
 			// Re-enable actions
 			enableActions(true);
@@ -396,120 +401,122 @@ public class CustomAchievementsPanel extends PluginPanel
 			title.setText(TITLE_MAIN);
 			blurb.setText(BLURB_USAGE);
 
-			for (int i = 0; i < achievements.size(); i++, rows++)
+			stack.push(new ArrayDeque<>(plugin.getElements()));
+
+			while (!stack.isEmpty())
 			{
-				Achievement achievement = achievements.get(i);
+				elements = stack.peek();
 
-				// Update Achievement status
-				achievement.checkStatus();
-
-				JLabel achievementLabel = createAchievementLabel(achievement);
-
-				expandCallback = e -> {
-					achievement.setUiExpanded(!achievement.isUiExpanded());
-					plugin.updateConfig();
-					refresh();
-				};
-
-				editCallback = e -> {
-					editAchievementPanel.setVisible(true);
-					editAchievementPanel.setTarget(achievement);
-					refresh();
-				};
-
-				removeCallback = e -> {
-					plugin.removeAchievement(achievement);
-					plugin.updateConfig();
-					refresh();
-				};
-
-				achievementDragAdapter = new DragAdapter<Achievement>(i, achievements)
+				while (!elements.isEmpty())
 				{
-					@Override
-					public int indicatorIndex(int listIndex)
+					final AchievementElement parent = parents.peek();
+					final AchievementElement element = elements.pop();
+					final List<AchievementElement> elementsRef = parent == null ?
+							plugin.getElements() :
+							parent.getChildren();
+					final int index = elementsRef.size() - elements.size() - 1;
+
+					element.refresh();
+					JLabel label = createAchievementElement(element);
+
+					expandCallback = e -> {
+						element.setUiExpanded(!element.isUiExpanded());
+						refresh();
+					};
+
+					editCallback = e -> {
+						editAchievementPanel.setVisible(true);
+						editAchievementPanel.setTarget(index, parent, element);
+						refresh();
+					};
+
+					if (parent == null)
 					{
-						int index = 0;
-
-						for (int i = 0; i < listIndex; i++, index++)
-						{
-							Achievement achievement = achievements.get(i);
-
-							if (achievement.isUiExpanded())
-							{
-								index += achievement.getRequirements().size();
-							}
-						}
-
-						return index;
-					}
-				};
-
-				wrapper = createExpandableListEntryWrapper(
-						achievementLabel,
-						expandCallback,
-						editCallback,
-						removeCallback,
-						achievementDragAdapter,
-						achievement.isUiExpanded());
-
-				achievementDragAdapter.setHighlightComponent(wrapper);
-
-				indicator = createInsertionIndicator();
-				achievementsPanel.add(indicator, gbc);
-				gbc.gridy++;
-
-				achievementsPanel.add(wrapper, gbc);
-				gbc.gridy++;
-
-				if (achievement.isUiExpanded())
-				{
-					List<Requirement> requirements = achievement.getRequirements();
-
-					for (int j = 0; j < requirements.size(); j++)
-					{
-						Requirement requirement = requirements.get(j);
-						JLabel requirementLabel = createRequirementLabel(achievement, requirement);
-
 						removeCallback = e -> {
-							plugin.removeRequirement(achievement, requirement);
+							plugin.remove(element);
 							plugin.updateConfig();
 							refresh();
 						};
-
-						final int indicatorStart = rows;
-						requirementDragAdapter = new DragAdapter<Requirement>(j, requirements)
-						{
-							@Override
-							public int indicatorIndex(int listIndex)
-							{
-								return indicatorStart + listIndex;
-							}
+					}
+					else
+					{
+						removeCallback = e -> {
+							plugin.remove(parent, element);
+							plugin.updateConfig();
+							refresh();
 						};
-
-						wrapper = createListEntryWrapper(
-								requirementLabel,
-								editCallback,
-								removeCallback,
-								requirementDragAdapter,
-								1);
-
-						requirementDragAdapter.setHighlightComponent(wrapper);
-
-						indicator = createInsertionIndicator();
-						achievementsPanel.add(indicator, gbc);
-						gbc.gridy++;
-
-						achievementsPanel.add(wrapper, gbc);
-						gbc.gridy++;
 					}
 
-					rows += requirements.size();
+					dragAdapter = new DragAdapter<AchievementElement>(index, elementsRef)
+					{
+						@Override
+						public int indicatorIndex(int listIndex)
+						{
+							if (listIndex < elementsRef.size())
+							{
+								return insertionIndicatorIndexMap.get(elementsRef.get(listIndex));
+							}
+							else
+							{
+								return insertionIndicatorIndexMap.get(elementsRef.get(elementsRef.size() - 1)) + 1;
+							}
+						}
+					};
+
+					if (element.getChildren().isEmpty())
+					{
+						wrapper = createElementWrapper(
+								label,
+								editCallback,
+								removeCallback,
+								dragAdapter,
+								stack.size()
+						);
+					}
+					else
+					{
+						wrapper = createExpandableElementWrapper(
+								label,
+								expandCallback,
+								editCallback,
+								removeCallback,
+								dragAdapter,
+								stack.size(),
+								element.isUiExpanded()
+						);
+					}
+
+					dragAdapter.setHighlightComponent(wrapper);
+
+					indicator = createInsertionIndicator();
+					insertionIndicatorIndexMap.put(element, insertionIndicators.size() - 1);
+					achievementsPanel.add(indicator, gbc);
+					gbc.gridy++;
+
+					achievementsPanel.add(wrapper, gbc);
+					gbc.gridy++;
+
+					if (element.isUiExpanded() && !element.getChildren().isEmpty())
+					{
+						stack.push(new ArrayDeque<>(element.getChildren()));
+						parents.push(element);
+						break;
+					}
+				}
+
+				if (stack.peek().isEmpty())
+				{
+					stack.pop();
+
+					if (!parents.isEmpty())
+					{
+						parents.pop();
+					}
 				}
 			}
 
 			indicator = createInsertionIndicator();
 			achievementsPanel.add(indicator, gbc);
-			gbc.gridy++;
 		}
 
 		revalidate();
@@ -524,60 +531,21 @@ public class CustomAchievementsPanel extends PluginPanel
 		editToggle.setEnabled(enable);
 	}
 
-	private JLabel createAchievementLabel(final Achievement achievement)
+	private JLabel createAchievementElement(AchievementElement element)
 	{
+		String forceIndicator = element.isForceComplete() ? " *" : "";
+
 		JLabel label = new JLabel();
-		label.setText(achievement.toString());
-		label.setForeground(achievement.getColor(config));
-		label.setToolTipText(achievement.getToolTip(config));
-		label.addMouseListener(new MouseAdapter() {
-			@Override
-			public void mousePressed(MouseEvent e)
-			{
-				achievement.setForceComplete(!achievement.isForceComplete());
-				achievement.checkStatus();
-				plugin.updateConfig();
-				refresh();
-			}
-
-			@Override
-			public void mouseEntered(MouseEvent e)
-			{
-				if (!dragging)
-				{
-					label.setForeground(Color.WHITE);
-				}
-			}
-
-			@Override
-			public void mouseExited(MouseEvent e)
-			{
-				label.setForeground(achievement.getColor(config));
-			}
-		});
-
-		return label;
-	}
-
-	private JLabel createRequirementLabel(final Achievement achievement, final Requirement requirement)
-	{
-		JLabel label = new JLabel();
-		label.setText(requirement.toString());
-		label.setForeground(requirement.getColor(achievement, config));
-		label.setToolTipText(String.format("%s: %s", requirement.toString(), requirement.getStatus(achievement, config)));
+		label.setForeground(element.getState().getColor());
+		label.setText(String.format("%s%s", element.toString(), forceIndicator));
+		label.setToolTipText(String.format("%s%s: %s", element.toString(), forceIndicator, element.getState().toString()));
 		label.addMouseListener(new MouseAdapter()
 		{
 			@Override
 			public void mousePressed(MouseEvent e)
 			{
-				if (requirement.isComplete())
-				{
-					requirement.reset();
-				}
-				else
-				{
-					requirement.setComplete(true);
-				}
+				element.click();
+				element.refresh();
 
 				plugin.updateConfig();
 				refresh();
@@ -595,7 +563,7 @@ public class CustomAchievementsPanel extends PluginPanel
 			@Override
 			public void mouseExited(MouseEvent e)
 			{
-				label.setForeground(requirement.getColor(achievement, config));
+				label.setForeground(element.getState().getColor());
 			}
 		});
 
@@ -613,15 +581,16 @@ public class CustomAchievementsPanel extends PluginPanel
 		return indicator;
 	}
 
-	private <T> JPanel createExpandableListEntryWrapper(
+	private <T> JPanel createExpandableElementWrapper(
 			JLabel label,
 			ActionListener expandCallback,
 			ActionListener editCallback,
 			ActionListener removeCallback,
 			DragAdapter<T> dragAdapter,
+			int indent,
 			boolean expanded)
 	{
-		final JPanel wrapper = createListEntryWrapper(label, editCallback, removeCallback, dragAdapter, 0);
+		final JPanel wrapper = createElementWrapper(label, editCallback, removeCallback, dragAdapter, indent - 1);
 
 		final JButton expandButton = new JButton(expanded ? COLLAPSE_ICON : EXPAND_ICON);
 		SwingUtil.removeButtonDecorations(expandButton);
@@ -634,7 +603,7 @@ public class CustomAchievementsPanel extends PluginPanel
 		return wrapper;
 	}
 
-	private <T> JPanel createListEntryWrapper(
+	private <T> JPanel createElementWrapper(
 			JLabel label,
 			ActionListener editCallback,
 			ActionListener removeCallback,

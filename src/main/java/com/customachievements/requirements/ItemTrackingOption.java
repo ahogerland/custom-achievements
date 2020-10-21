@@ -25,9 +25,11 @@
  */
 package com.customachievements.requirements;
 
+import lombok.AllArgsConstructor;
 import lombok.Getter;
 
 @Getter
+@AllArgsConstructor
 public enum ItemTrackingOption
 {
 	DROPPED("Dropped", "Receive as a drop from monsters or activities"),
@@ -35,12 +37,6 @@ public enum ItemTrackingOption
 
 	private final String name;
 	private final String description;
-
-	ItemTrackingOption(String name, String description)
-	{
-		this.name = name;
-		this.description = description;
-	}
 
 	@Override
 	public String toString()

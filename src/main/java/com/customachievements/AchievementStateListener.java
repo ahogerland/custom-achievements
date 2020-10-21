@@ -25,8 +25,7 @@
  */
 package com.customachievements;
 
-public interface StatusListener
+public interface AchievementStateListener
 {
-	void onComplete();
-	void onUpdated();
+	void onStateChanged(AchievementState state);
 }

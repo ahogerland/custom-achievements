@@ -30,13 +30,13 @@ import com.customachievements.ItemSource;
 import com.customachievements.events.ItemsValidated;
 import lombok.Getter;
 import lombok.Setter;
-import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
 import net.runelite.client.eventbus.Subscribe;
 
 import java.util.Collection;
 
-@Slf4j
+import static com.customachievements.AchievementState.*;
+
 @Getter
 @Setter
 public class ItemRequirement extends Requirement
@@ -48,27 +48,26 @@ public class ItemRequirement extends Requirement
 
 	public ItemRequirement(String name, int quantity)
 	{
-		this(name, quantity, 0, ItemTrackingOption.INVENTORY, false);
-	}
-
-	public ItemRequirement(
-			String name,
-			int quantity,
-			int count,
-			ItemTrackingOption trackingOption,
-			boolean complete)
-	{
-		super(RequirementType.ITEM, complete);
+		super(RequirementType.ITEM);
 		this.name = name;
 		this.quantity = quantity;
-		this.count = count;
-		this.trackingOption = trackingOption;
+		this.count = 0;
+		this.trackingOption = ItemTrackingOption.INVENTORY;
+	}
+
+	public ItemRequirement(ItemRequirement other)
+	{
+		super(other);
+		this.name = other.name;
+		this.quantity = other.quantity;
+		this.count = other.count;
+		this.trackingOption = other.trackingOption;
 	}
 
 	@Subscribe
 	public void onItemsValidated(final ItemsValidated itemsValidated)
 	{
-		if (!complete)
+		if (getProgress() != COMPLETE)
 		{
 			if (trackingOption == ItemTrackingOption.DROPPED &&
 				itemsValidated.getSource() != ItemSource.INVENTORY)
@@ -85,15 +84,15 @@ public class ItemRequirement extends Requirement
 	}
 
 	@Override
-	public Requirement deepCopy()
+	public void forceUpdate(Client client)
 	{
-		return new ItemRequirement(name, quantity, count, trackingOption, complete);
+		updateState();
 	}
 
 	@Override
-	public void refresh(Client client)
+	public Requirement deepCopy()
 	{
-		checkStatus();
+		return new ItemRequirement(this);
 	}
 
 	@Override
@@ -108,13 +107,13 @@ public class ItemRequirement extends Requirement
 	{
 		if (name.isEmpty())
 		{
-			return super.toString();
+			return NAME_UNKNOWN;
 		}
 		else
 		{
 			return String.format("%s (%d/%d)",
 					name,
-					complete ? quantity : Math.min(count, quantity),
+					getState() == COMPLETE ? quantity : Math.min(count, quantity),
 					quantity);
 		}
 	}
@@ -129,17 +128,23 @@ public class ItemRequirement extends Requirement
 			}
 		}
 
-		checkStatus();
-		broadcastStatus();
+		updateState();
+		broadcastState();
 	}
 
-	private void checkStatus()
+	private void updateState()
 	{
 		if (count >= quantity)
 		{
-			complete = true;
+			setProgress(COMPLETE);
 		}
-
-		inProgress = (count > 0);
+		else if (count > 0)
+		{
+			setProgress(IN_PROGRESS);
+		}
+		else
+		{
+			setProgress(INCOMPLETE);
+		}
 	}
 }
