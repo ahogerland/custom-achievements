@@ -44,22 +44,14 @@ public interface CustomAchievementsConfig extends Config
 
 	@ConfigItem(
 			position = 1,
-			keyName = "achievementInProgressEnabled",
-			name = "Enable Achievement \"In Progress\" Status",
-			description = "Achievements are labelled as \"In Progress\" when one or more requirements have been completed."
+			keyName = "isInfoHeaderVisible",
+			name = "Show Informational Header",
+			description = "Show informational header."
 	)
-	default boolean achievementInProgressEnabled() { return true; }
+	default boolean isInfoHeaderVisible() { return true; }
 
 	@ConfigItem(
 			position = 2,
-			keyName = "requirementInProgressEnabled",
-			name = "Enable Requirement \"In Progress\" Status",
-			description = "Requirements are labelled as \"In Progress\" when partially completed (if applicable)."
-	)
-	default boolean requirementInProgressEnabled() { return true; }
-
-	@ConfigItem(
-			position = 3,
 			keyName = "notificationsEnabled",
 			name = "Enable Chat Notifications",
 			description = "Enable notification messages in the chatbox."
@@ -67,7 +59,7 @@ public interface CustomAchievementsConfig extends Config
 	default boolean notificationsEnabled() { return true; }
 
 	@ConfigItem(
-			position = 4,
+			position = 3,
 			keyName = "notificationsColor",
 			name = "Chat Notification Color",
 			description = "The color applied to messages in the chatbox when unlocking an achievement."

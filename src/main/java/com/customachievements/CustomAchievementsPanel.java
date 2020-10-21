@@ -55,8 +55,10 @@ import javax.swing.JFileChooser;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JScrollPane;
 import javax.swing.JSeparator;
 import javax.swing.JToggleButton;
+import javax.swing.ScrollPaneConstants;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.plaf.basic.BasicSeparatorUI;
 
@@ -84,6 +86,8 @@ public class CustomAchievementsPanel extends PluginPanel
 	private static final ImageIcon ADD_ICON_HOVER;
 	private static final ImageIcon REMOVE_ICON;
 	private static final ImageIcon REMOVE_ICON_FADED;
+	private static final ImageIcon RESET_ICON;
+	private static final ImageIcon RESET_ICON_FADED;
 	private static final ImageIcon EDIT_ICON;
 	private static final ImageIcon EDIT_ICON_HOVER;
 	private static final ImageIcon EDIT_ICON_SELECTED;
@@ -96,13 +100,16 @@ public class CustomAchievementsPanel extends PluginPanel
 
 	private static final String TITLE_MAIN = "Achievements";
 	private static final String TITLE_EDIT = "Editor";
-	private static final String BLURB_USAGE;
-	private static final String BLURB_EDIT;
+	private static final String INFO_USAGE;
+	private static final String INFO_EDIT;
 
-	private final JPanel achievementsPanel = new JPanel();
+	private final JPanel achievementsPanel = new FixedWidthPanel();
 
 	private final JLabel title = new JLabel();
-	private final JLabel blurb = new JLabel();
+	private final JLabel info = new JLabel();
+	private final JSeparator infoSeparator = new JSeparator();
+
+	private final JButton clearButton = new JButton();
 	private final JButton importButton = new JButton();
 	private final JButton exportButton = new JButton();
 	private final JButton addButton = new JButton();
@@ -123,6 +130,7 @@ public class CustomAchievementsPanel extends PluginPanel
 		final BufferedImage exportImage = ImageUtil.getResourceStreamFromClass(CustomAchievementsPlugin.class, "export_icon.png");
 		final BufferedImage addImage = ImageUtil.getResourceStreamFromClass(CustomAchievementsPlugin.class, "add_icon.png");
 		final BufferedImage removeImage = ImageUtil.getResourceStreamFromClass(CustomAchievementsPlugin.class, "mini_remove_icon.png");
+		final BufferedImage resetImage = ImageUtil.getResourceStreamFromClass(CustomAchievementsPlugin.class, "mini_reset_icon.png");
 		final BufferedImage editImage = ImageUtil.getResourceStreamFromClass(CustomAchievementsPlugin.class, "edit_icon.png");
 		final BufferedImage invertedEditImage = ImageUtil.getResourceStreamFromClass(CustomAchievementsPlugin.class, "edit_icon_inverted.png");
 		final BufferedImage miniEditImage = ImageUtil.getResourceStreamFromClass(CustomAchievementsPlugin.class, "mini_edit_icon.png");
@@ -142,6 +150,9 @@ public class CustomAchievementsPanel extends PluginPanel
 		REMOVE_ICON = new ImageIcon(removeImage);
 		REMOVE_ICON_FADED = new ImageIcon(ImageUtil.alphaOffset(removeImage, 0.2f));
 
+		RESET_ICON = new ImageIcon(resetImage);
+		RESET_ICON_FADED = new ImageIcon(ImageUtil.alphaOffset(resetImage, 0.2f));
+
 		EDIT_ICON = new ImageIcon(editImage);
 		EDIT_ICON_HOVER = new ImageIcon(ImageUtil.alphaOffset(editImage, 0.5f));
 		EDIT_ICON_SELECTED = new ImageIcon(invertedEditImage);
@@ -155,63 +166,66 @@ public class CustomAchievementsPanel extends PluginPanel
 		EXPAND_ICON = new ImageIcon(ImageUtil.luminanceScale(expandImage, 0.4f));
 		COLLAPSE_ICON = new ImageIcon(ImageUtil.luminanceScale(collapseImage, 0.4f));
 
-		BLURB_USAGE = "<html>"
+		INFO_USAGE = "<html>"
 				+ "Create and edit Custom Achievements using the menu buttons above. Additional tools are shown in "
 				+ "Edit Mode. For help and usage visit the custom-achievements GitHub page."
 				+ "</html>";
 
-		BLURB_EDIT = "<html>"
+		INFO_EDIT = "<html>"
 				+ "NOTE: Progress made toward a Requirement will NOT be overwritten ONLY when editing quantity attributes."
 				+ "</html>";
 	}
 
 	CustomAchievementsPanel(final CustomAchievementsPlugin plugin, final CustomAchievementsConfig config)
 	{
+		super(false);
+
 		this.plugin = plugin;
 		this.config = config;
 		this.editAchievementPanel = new EditAchievementPanel(plugin);
 
-		// Start with edit panel hidden
 		editAchievementPanel.setVisible(false);
-
-		// An ActionEvent will signal that we are done editing
 		editAchievementPanel.addActionListener(e -> {
+			// An ActionEvent will signal that we are done editing
 			editAchievementPanel.setVisible(false);
 			refresh();
 		});
 
 		final JPanel headerPanel = new JPanel();
 		final JPanel actionsWrapper = new JPanel();
+		final JPanel infoWrapper = new JPanel();
 		final JPanel achievementsWrapper = new JPanel();
-		final JPanel blurbWrapper = new JPanel();
 
-		getParent().setLayout(new BorderLayout());
-		getParent().add(this, BorderLayout.CENTER);
+		final JScrollPane achievementsScrollPane = new JScrollPane(achievementsWrapper);
+		achievementsScrollPane.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
 
 		setLayout(new BorderLayout());
-		setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
+		setBorder(BorderFactory.createEmptyBorder(BORDER_OFFSET, BORDER_OFFSET, BORDER_OFFSET, BORDER_OFFSET));
 		setBackground(ColorScheme.DARK_GRAY_COLOR);
 
 		headerPanel.setLayout(new BorderLayout());
 		headerPanel.setBorder(BorderFactory.createEmptyBorder(1, 0, 1, 0));
 
 		actionsWrapper.setLayout(new GridLayout(1, 4, -10, 0));
+		infoWrapper.setLayout(new BorderLayout());
 		achievementsWrapper.setLayout(new BorderLayout());
 		achievementsWrapper.setBackground(ColorScheme.DARKER_GRAY_COLOR);
-		blurbWrapper.setLayout(new BorderLayout());
 
 		achievementsPanel.setLayout(new GridBagLayout());
-		achievementsPanel.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 0));
-		achievementsPanel.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+		achievementsPanel.setBorder(BorderFactory.createEmptyBorder());
 
 		title.setForeground(Color.WHITE);
-		blurb.setForeground(ColorScheme.LIGHT_GRAY_COLOR);
-		blurb.setFont(FontManager.getRunescapeSmallFont());
-		blurb.setBorder(BorderFactory.createEmptyBorder(8, 0, 8, 0));
+		info.setForeground(ColorScheme.LIGHT_GRAY_COLOR);
+		info.setFont(FontManager.getRunescapeSmallFont());
+		info.setBorder(BorderFactory.createEmptyBorder(BORDER_OFFSET, 0, BORDER_OFFSET, 0));
 
-		final JSeparator blurbSeparator = new JSeparator();
-		blurbSeparator.setBackground(ColorScheme.LIGHT_GRAY_COLOR);
-		blurbSeparator.setBorder(BorderFactory.createEmptyBorder(8, 0, 0, 0));
+		infoSeparator.setUI(new BasicSeparatorUI());
+		infoSeparator.setBackground(ColorScheme.LIGHT_GRAY_COLOR);
+
+		clearButton.setText("Clear All");
+		clearButton.setVisible(false);
+		clearButton.setBorder(BorderFactory.createEmptyBorder(BORDER_OFFSET, 0, BORDER_OFFSET, 0));
+		clearButton.addActionListener(e -> clearAchievementElements());
 
 		SwingUtil.removeButtonDecorations(importButton);
 		importButton.setIcon(IMPORT_ICON);
@@ -249,16 +263,17 @@ public class CustomAchievementsPanel extends PluginPanel
 		actionsWrapper.add(exportButton);
 		actionsWrapper.add(addButton);
 		actionsWrapper.add(editToggle);
+		infoWrapper.add(infoSeparator, BorderLayout.NORTH);
+		infoWrapper.add(info, BorderLayout.SOUTH);
 		achievementsWrapper.add(achievementsPanel, BorderLayout.NORTH);
-		blurbWrapper.add(blurbSeparator, BorderLayout.NORTH);
-		blurbWrapper.add(blurb, BorderLayout.SOUTH);
 
 		headerPanel.add(title, BorderLayout.WEST);
-		headerPanel.add(blurbWrapper, BorderLayout.SOUTH);
+		headerPanel.add(infoWrapper, BorderLayout.SOUTH);
 		headerPanel.add(actionsWrapper, BorderLayout.EAST);
 
 		add(headerPanel, BorderLayout.NORTH);
-		add(achievementsWrapper, BorderLayout.CENTER);
+		add(achievementsScrollPane, BorderLayout.CENTER);
+		add(clearButton, BorderLayout.SOUTH);
 
 		refresh();
 	}
@@ -371,13 +386,18 @@ public class CustomAchievementsPanel extends PluginPanel
 		gbc.gridx = 0;
 		gbc.gridy = 0;
 
+		final boolean infoHeaderVisible = config.isInfoHeaderVisible();
+		info.setVisible(infoHeaderVisible);
+		infoSeparator.setVisible(infoHeaderVisible);
+
 		if (editAchievementPanel.isVisible())
 		{
 			// Disable actions while editing achievements
 			enableActions(false);
 
 			title.setText(TITLE_EDIT);
-			blurb.setText(BLURB_EDIT);
+			info.setText(INFO_EDIT);
+			clearButton.setVisible(false);
 
 			achievementsPanel.add(editAchievementPanel, gbc);
 		}
@@ -390,6 +410,7 @@ public class CustomAchievementsPanel extends PluginPanel
 			JPanel wrapper;
 			ActionListener expandCallback;
 			ActionListener editCallback;
+			ActionListener resetCallback;
 			ActionListener removeCallback;
 			DragAdapter<AchievementElement> dragAdapter;
 
@@ -399,7 +420,8 @@ public class CustomAchievementsPanel extends PluginPanel
 			enableActions(true);
 
 			title.setText(TITLE_MAIN);
-			blurb.setText(BLURB_USAGE);
+			info.setText(INFO_USAGE);
+			clearButton.setVisible(editToggle.isSelected());
 
 			stack.push(new ArrayDeque<>(plugin.getElements()));
 
@@ -427,6 +449,12 @@ public class CustomAchievementsPanel extends PluginPanel
 					editCallback = e -> {
 						editAchievementPanel.setVisible(true);
 						editAchievementPanel.setTarget(index, parent, element);
+						refresh();
+					};
+
+					resetCallback = e -> {
+						element.reset();
+						plugin.updateConfig();
 						refresh();
 					};
 
@@ -468,6 +496,7 @@ public class CustomAchievementsPanel extends PluginPanel
 						wrapper = createElementWrapper(
 								label,
 								editCallback,
+								resetCallback,
 								removeCallback,
 								dragAdapter,
 								stack.size()
@@ -479,6 +508,7 @@ public class CustomAchievementsPanel extends PluginPanel
 								label,
 								expandCallback,
 								editCallback,
+								resetCallback,
 								removeCallback,
 								dragAdapter,
 								stack.size(),
@@ -529,6 +559,21 @@ public class CustomAchievementsPanel extends PluginPanel
 		exportButton.setEnabled(enable);
 		addButton.setEnabled(enable);
 		editToggle.setEnabled(enable);
+	}
+
+	private void clearAchievementElements()
+	{
+		int confirm = JOptionPane.showConfirmDialog(this,
+				"Are you sure you want to DELETE all current achievement data?",
+				"Warning",
+				JOptionPane.OK_CANCEL_OPTION);
+
+		if (confirm == JOptionPane.OK_OPTION)
+		{
+			plugin.clear();
+			plugin.updateConfig();
+			refresh();
+		}
 	}
 
 	private JLabel createAchievementElement(AchievementElement element)
@@ -585,12 +630,19 @@ public class CustomAchievementsPanel extends PluginPanel
 			JLabel label,
 			ActionListener expandCallback,
 			ActionListener editCallback,
+			ActionListener resetCallback,
 			ActionListener removeCallback,
 			DragAdapter<T> dragAdapter,
 			int indent,
 			boolean expanded)
 	{
-		final JPanel wrapper = createElementWrapper(label, editCallback, removeCallback, dragAdapter, indent - 1);
+		final JPanel wrapper = createElementWrapper(
+				label,
+				editCallback,
+				resetCallback,
+				removeCallback,
+				dragAdapter,
+				indent - 1);
 
 		final JButton expandButton = new JButton(expanded ? COLLAPSE_ICON : EXPAND_ICON);
 		SwingUtil.removeButtonDecorations(expandButton);
@@ -606,35 +658,23 @@ public class CustomAchievementsPanel extends PluginPanel
 	private <T> JPanel createElementWrapper(
 			JLabel label,
 			ActionListener editCallback,
+			ActionListener resetCallback,
 			ActionListener removeCallback,
 			DragAdapter<T> dragAdapter,
 			int indent)
 	{
-		final JPanel wrapper = new JPanel(new BorderLayout());
+		final JPanel wrapper = new FixedWidthPanel();
+		wrapper.setLayout(new BorderLayout());
 		wrapper.setBackground(ColorScheme.DARKER_GRAY_COLOR);
 		wrapper.setBorder(BorderFactory.createEmptyBorder(0, Math.max(0, indent * INDENT_WIDTH), 2, 0));
-		wrapper.setPreferredSize(new Dimension(getPreferredSize().width, LIST_ENTRY_HEIGHT));
+		wrapper.setPreferredSize(new Dimension(0, LIST_ENTRY_HEIGHT));
 
 		label.setBorder(BorderFactory.createEmptyBorder(1, 0, 0, 0));
 
 		if (editToggle.isSelected())
 		{
-			JPanel editWrapper = new JPanel(new GridLayout(1, 3, -4, 0));
+			JPanel editWrapper = new JPanel(new GridLayout(1, 4, -6, 0));
 			editWrapper.setOpaque(false);
-
-			JButton editButton = new JButton(MINI_EDIT_ICON_FADED);
-			SwingUtil.removeButtonDecorations(editButton);
-			editButton.setPreferredSize(new Dimension(BUTTON_WIDTH, LIST_ENTRY_HEIGHT));
-			editButton.setRolloverIcon(MINI_EDIT_ICON);
-			editButton.setToolTipText("Edit");
-			editButton.addActionListener(editCallback);
-
-			JButton removeButton = new JButton(REMOVE_ICON_FADED);
-			SwingUtil.removeButtonDecorations(removeButton);
-			removeButton.setPreferredSize(new Dimension(BUTTON_WIDTH, LIST_ENTRY_HEIGHT));
-			removeButton.setRolloverIcon(REMOVE_ICON);
-			removeButton.setToolTipText("Remove");
-			removeButton.addActionListener(removeCallback);
 
 			JButton dragButton = new JButton(DRAG_ICON_FADED);
 			SwingUtil.removeButtonDecorations(dragButton);
@@ -644,8 +684,30 @@ public class CustomAchievementsPanel extends PluginPanel
 			dragButton.addMouseListener(dragAdapter);
 			dragButton.addMouseMotionListener(dragAdapter);
 
+			JButton editButton = new JButton(MINI_EDIT_ICON_FADED);
+			SwingUtil.removeButtonDecorations(editButton);
+			editButton.setPreferredSize(new Dimension(BUTTON_WIDTH, LIST_ENTRY_HEIGHT));
+			editButton.setRolloverIcon(MINI_EDIT_ICON);
+			editButton.setToolTipText("Edit");
+			editButton.addActionListener(editCallback);
+
+			JButton resetButton = new JButton(RESET_ICON_FADED);
+			SwingUtil.removeButtonDecorations(resetButton);
+			resetButton.setPreferredSize(new Dimension(BUTTON_WIDTH, LIST_ENTRY_HEIGHT));
+			resetButton.setRolloverIcon(RESET_ICON);
+			resetButton.setToolTipText("Reset Progress");
+			resetButton.addActionListener(resetCallback);
+
+			JButton removeButton = new JButton(REMOVE_ICON_FADED);
+			SwingUtil.removeButtonDecorations(removeButton);
+			removeButton.setPreferredSize(new Dimension(BUTTON_WIDTH, LIST_ENTRY_HEIGHT));
+			removeButton.setRolloverIcon(REMOVE_ICON);
+			removeButton.setToolTipText("Remove");
+			removeButton.addActionListener(removeCallback);
+
 			editWrapper.add(dragButton);
 			editWrapper.add(editButton);
+			editWrapper.add(resetButton);
 			editWrapper.add(removeButton);
 			wrapper.add(editWrapper, BorderLayout.EAST);
 		}

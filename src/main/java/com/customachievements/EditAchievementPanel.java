@@ -72,8 +72,9 @@ import net.runelite.client.util.SwingUtil;
 
 import static com.customachievements.CustomAchievementsPanel.LIST_ENTRY_HEIGHT;
 import static com.customachievements.CustomAchievementsPanel.BUTTON_WIDTH;
+import static com.customachievements.CustomAchievementsPanel.BORDER_OFFSET;
 
-public class EditAchievementPanel extends JPanel
+public class EditAchievementPanel extends FixedWidthPanel
 {
 	public static final String ACTION_UPDATE = "ACTION_UPDATE";
 	public static final String ACTION_CANCEL = "ACTION_CANCEL";
@@ -202,10 +203,6 @@ public class EditAchievementPanel extends JPanel
 		gbc.gridy++;
 
 		add(createSeparator(ColorScheme.DARKER_GRAY_COLOR), gbc);
-		gbc.gridy++;
-
-		repaint();
-		revalidate();
 	}
 
 	public void addActionListener(@NonNull final ActionListener listener)
@@ -250,7 +247,7 @@ public class EditAchievementPanel extends JPanel
 	private JPanel createAchievementPanel(final Achievement achievement)
 	{
 		final JPanel wrapper = new JPanel(new GridLayout(2, 1));
-		wrapper.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
+		wrapper.setBorder(BorderFactory.createEmptyBorder(BORDER_OFFSET, BORDER_OFFSET, BORDER_OFFSET, BORDER_OFFSET));
 		wrapper.setBackground(ColorScheme.DARKER_GRAY_COLOR);
 
 		final JLabel nameLabel = new JLabel("Achievement Name");
@@ -289,7 +286,7 @@ public class EditAchievementPanel extends JPanel
 	private JPanel createAutoCompletionCheckBox()
 	{
 		final JPanel wrapper = new JPanel(new BorderLayout());
-		wrapper.setBorder(BorderFactory.createEmptyBorder(0, 8, 8, 8));
+		wrapper.setBorder(BorderFactory.createEmptyBorder(0, BORDER_OFFSET, BORDER_OFFSET, BORDER_OFFSET));
 		wrapper.setBackground(ColorScheme.DARKER_GRAY_COLOR);
 
 		final String toolTip = "Automatically mark as completed once all requirements are complete.";
@@ -315,7 +312,7 @@ public class EditAchievementPanel extends JPanel
 	private JPanel createRequirementPanel(final Requirement requirement, boolean sub)
 	{
 		final JPanel wrapper = new JPanel(new BorderLayout());
-		wrapper.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
+		wrapper.setBorder(BorderFactory.createEmptyBorder(BORDER_OFFSET, BORDER_OFFSET, BORDER_OFFSET, BORDER_OFFSET));
 		wrapper.setBackground(ColorScheme.DARKER_GRAY_COLOR);
 
 		final JPanel titleWrapper = new JPanel(new BorderLayout());
@@ -582,7 +579,7 @@ public class EditAchievementPanel extends JPanel
 	private JPanel createAddRequirementPanel(boolean sub)
 	{
 		final JPanel wrapper = new JPanel(new BorderLayout());
-		wrapper.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
+		wrapper.setBorder(BorderFactory.createEmptyBorder(BORDER_OFFSET, BORDER_OFFSET, BORDER_OFFSET, BORDER_OFFSET));
 		wrapper.setBackground(ColorScheme.DARKER_GRAY_COLOR);
 
 		final JComboBox<RequirementType> dropdown = new JComboBox<>(RequirementType.values());
