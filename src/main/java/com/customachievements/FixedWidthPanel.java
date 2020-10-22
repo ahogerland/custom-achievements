@@ -30,7 +30,7 @@ import net.runelite.client.ui.PluginPanel;
 import javax.swing.JPanel;
 import java.awt.Dimension;
 
-class FixedWidthPanel extends JPanel
+public class FixedWidthPanel extends JPanel
 {
 	@Override
 	public Dimension getPreferredSize()
