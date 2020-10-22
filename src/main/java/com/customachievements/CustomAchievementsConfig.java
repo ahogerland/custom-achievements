@@ -31,9 +31,12 @@ import net.runelite.client.config.Config;
 import net.runelite.client.config.ConfigGroup;
 import net.runelite.client.config.ConfigItem;
 
-@ConfigGroup("achievements")
+@ConfigGroup(CustomAchievementsConfig.CONFIG_GROUP)
 public interface CustomAchievementsConfig extends Config
 {
+	String CONFIG_GROUP = "customachievements";
+	String ELEMENTS = "elements";
+
 	@ConfigItem(
 			position = 0,
 			keyName = "ironmanModeEnabled",
@@ -65,19 +68,4 @@ public interface CustomAchievementsConfig extends Config
 			description = "The color applied to messages in the chatbox when unlocking an achievement."
 	)
 	default Color notificationsColor() { return new Color(120, 20, 120); }
-
-	@ConfigItem(
-			keyName = "achievementsData",
-			name = "",
-			description = "",
-			hidden = true
-	)
-	default String achievementsData() { return ""; }
-
-	@ConfigItem(
-			keyName = "achievementsData",
-			name = "",
-			description = ""
-	)
-	void achievementsData(String data);
 }

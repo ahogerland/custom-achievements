@@ -73,6 +73,7 @@ import net.runelite.client.util.SwingUtil;
 import static com.customachievements.CustomAchievementsPanel.LIST_ENTRY_HEIGHT;
 import static com.customachievements.CustomAchievementsPanel.BUTTON_WIDTH;
 import static com.customachievements.CustomAchievementsPanel.BORDER_OFFSET;
+import static com.customachievements.CustomAchievementsPanel.LIST_SEPARATOR_REGEX;
 
 public class EditAchievementPanel extends FixedWidthPanel
 {
@@ -178,6 +179,9 @@ public class EditAchievementPanel extends FixedWidthPanel
 		add(createTargetPanel(target), gbc);
 		gbc.gridy++;
 
+		add(createKeywordPanel(target), gbc);
+		gbc.gridy++;
+
 		add(createSeparator(ColorScheme.DARK_GRAY_COLOR), gbc);
 		gbc.gridy++;
 
@@ -203,6 +207,9 @@ public class EditAchievementPanel extends FixedWidthPanel
 		gbc.gridy++;
 
 		add(createSeparator(ColorScheme.DARKER_GRAY_COLOR), gbc);
+
+		revalidate();
+		repaint();
 	}
 
 	public void addActionListener(@NonNull final ActionListener listener)
@@ -242,6 +249,44 @@ public class EditAchievementPanel extends FixedWidthPanel
 		{
 			return new JPanel();
 		}
+	}
+
+	private JPanel createKeywordPanel(final AchievementElement element)
+	{
+		final JPanel wrapper = new JPanel(new GridLayout(2, 1));
+		wrapper.setBorder(BorderFactory.createEmptyBorder(0, BORDER_OFFSET, BORDER_OFFSET, BORDER_OFFSET));
+		wrapper.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+
+		final JLabel nameLabel = new JLabel("Keywords");
+		nameLabel.setForeground(ColorScheme.BRAND_ORANGE);
+		nameLabel.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+		nameLabel.setFont(FontManager.getRunescapeSmallFont());
+
+		final FlatTextField keywordInput = new FlatTextField();
+		keywordInput.getTextField().setBorder(BorderFactory.createEmptyBorder(2, 0, 2, 0));
+		keywordInput.setText(String.join(", ", element.getKeywords()));
+		keywordInput.setBackground(ColorScheme.DARK_GRAY_COLOR);
+		keywordInput.setHoverBackgroundColor(ColorScheme.DARK_GRAY_HOVER_COLOR);
+		keywordInput.addKeyListener(new KeyListener()
+		{
+			@Override
+			public void keyTyped(KeyEvent e) {}
+
+			@Override
+			public void keyPressed(KeyEvent e) {}
+
+			@Override
+			public void keyReleased(KeyEvent e)
+			{
+				String[] keywords = keywordInput.getText().toLowerCase().split(LIST_SEPARATOR_REGEX);
+				element.setKeywords(Arrays.asList(keywords));
+			}
+		});
+
+		wrapper.add(nameLabel);
+		wrapper.add(keywordInput);
+
+		return wrapper;
 	}
 
 	private JPanel createAchievementPanel(final Achievement achievement)
@@ -331,7 +376,7 @@ public class EditAchievementPanel extends FixedWidthPanel
 		removeButton.setRolloverIcon(REMOVE_ICON);
 		removeButton.setToolTipText("Remove");
 		removeButton.addActionListener(e -> {
-			target.removeChild(requirement);
+			target.getChildren().remove(requirement);
 			refresh();
 		});
 
@@ -597,7 +642,7 @@ public class EditAchievementPanel extends FixedWidthPanel
 			if (dropdown.getSelectedItem() != null)
 			{
 				Requirement requirement = plugin.createRequirement((RequirementType) dropdown.getSelectedItem());
-				target.addChild(requirement);
+				target.getChildren().add(requirement);
 			}
 
 			refresh();

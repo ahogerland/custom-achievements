@@ -86,6 +86,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -108,13 +109,16 @@ public class CustomAchievementsPlugin extends Plugin
 	private final List<AchievementElement> elements = new ArrayList<>();
 
 	@Getter
-	private final CustomAchievementsSerializer serializer = new CustomAchievementsSerializer().setPrettyPrinting();
+	private final CustomAchievementsSerializer serializer = new CustomAchievementsSerializer();
 
 	@Inject
 	private ItemManager itemManager;
 
 	@Inject
 	private NPCManager npcManager;
+
+	@Inject
+	private ConfigManager configManager;
 
 	@Inject
 	private EventBus eventBus;
@@ -152,29 +156,6 @@ public class CustomAchievementsPlugin extends Plugin
 		return configManager.getConfig(CustomAchievementsConfig.class);
 	}
 
-	public Achievement createAchievement(String name)
-	{
-		return new Achievement(name);
-	}
-
-	public Requirement createRequirement(RequirementType type)
-	{
-		switch (type)
-		{
-			case SKILL:
-				return new SkillRequirement(Skill.ATTACK, SkillTargetType.LEVEL, 1);
-			case ITEM:
-				return new ItemRequirement("", 1);
-			case SLAY:
-				return new SlayRequirement("", 1);
-			case QUEST:
-				return new QuestRequirement(Quest.COOKS_ASSISTANT);
-			case ABSTRACT:
-			default:
-				return new AbstractRequirement("");
-		}
-	}
-
 	public void clear()
 	{
 		while (!elements.isEmpty())
@@ -192,7 +173,7 @@ public class CustomAchievementsPlugin extends Plugin
 
 	public void add(AchievementElement parent, AchievementElement child)
 	{
-		parent.addChild(child);
+		parent.getChildren().add(child);
 		register(child);
 		registerChildren(child);
 	}
@@ -208,7 +189,7 @@ public class CustomAchievementsPlugin extends Plugin
 	{
 		unregister(child);
 		unregisterChildren(child);
-		parent.removeChild(child);
+		parent.getChildren().remove(child);
 	}
 
 	public void set(int index, AchievementElement element)
@@ -224,11 +205,11 @@ public class CustomAchievementsPlugin extends Plugin
 
 	public void set(int index, AchievementElement parent, AchievementElement child)
 	{
-		AchievementElement old = parent.getChild(index);
+		AchievementElement old = parent.getChildren().get(index);
 
 		unregister(old);
 		unregisterChildren(old);
-		parent.setChild(index, child);
+		parent.getChildren().set(index, child);
 		register(child);
 		registerChildren(child);
 	}
@@ -265,7 +246,20 @@ public class CustomAchievementsPlugin extends Plugin
 
 	public void updateConfig()
 	{
-		config.achievementsData(serializer.toJson(elements));
+		if (elements.isEmpty())
+		{
+			configManager.unsetConfiguration(
+					CustomAchievementsConfig.CONFIG_GROUP,
+					CustomAchievementsConfig.ELEMENTS);
+			return;
+		}
+
+		final String json = serializer.toJson(elements);
+
+		configManager.setConfiguration(
+				CustomAchievementsConfig.CONFIG_GROUP,
+				CustomAchievementsConfig.ELEMENTS,
+				json);
 	}
 
 	public void loadConfig(String json)
@@ -284,12 +278,6 @@ public class CustomAchievementsPlugin extends Plugin
 			for (AchievementElement element : loaded)
 			{
 				add(element);
-
-				for (AchievementElement child : element.getChildren())
-				{
-					eventBus.register(child);
-					child.setStateListener(new AchievementElementStateListener(child));
-				}
 			}
 		}
 
@@ -322,6 +310,29 @@ public class CustomAchievementsPlugin extends Plugin
 		updateAchievementElements(elements);
 
 		SwingUtilities.invokeLater(panel::refresh);
+	}
+
+	public Achievement createAchievement(String name)
+	{
+		return new Achievement(name);
+	}
+
+	public Requirement createRequirement(RequirementType type)
+	{
+		switch (type)
+		{
+			case SKILL:
+				return new SkillRequirement(Skill.ATTACK, SkillTargetType.LEVEL, 1);
+			case ITEM:
+				return new ItemRequirement("", 1);
+			case SLAY:
+				return new SlayRequirement("", 1);
+			case QUEST:
+				return new QuestRequirement(Quest.COOKS_ASSISTANT);
+			case ABSTRACT:
+			default:
+				return new AbstractRequirement("");
+		}
 	}
 
 	@Schedule(
@@ -489,6 +500,9 @@ public class CustomAchievementsPlugin extends Plugin
 	protected void startUp()
 	{
 		final BufferedImage icon = ImageUtil.getResourceStreamFromClass(getClass(), "achievements_icon.png");
+		final String configJson = configManager.getConfiguration(
+				CustomAchievementsConfig.CONFIG_GROUP,
+				CustomAchievementsConfig.ELEMENTS);
 
 		panel = new CustomAchievementsPanel(this, config);
 
@@ -499,7 +513,7 @@ public class CustomAchievementsPlugin extends Plugin
 				.build();
 
 		clientToolbar.addNavigation(navigationButton);
-		loadConfig(config.achievementsData());
+		loadConfig(configJson);
 	}
 
 	@Override

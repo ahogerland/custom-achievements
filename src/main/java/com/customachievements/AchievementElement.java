@@ -41,6 +41,7 @@ public abstract class AchievementElement
 	private AchievementState state;
 	private boolean forceComplete;
 	private boolean uiExpanded;
+	private List<String> keywords;
 
 	@Setter(AccessLevel.NONE)
 	private final List<AchievementElement> children;
@@ -53,6 +54,7 @@ public abstract class AchievementElement
 		this.state = AchievementState.INCOMPLETE;
 		this.forceComplete = false;
 		this.uiExpanded = true;
+		this.keywords = new ArrayList<>();
 		this.children = new ArrayList<>();
 		this.stateListener = null;
 	}
@@ -62,6 +64,7 @@ public abstract class AchievementElement
 		this.state = other.state;
 		this.forceComplete = other.forceComplete;
 		this.uiExpanded = other.uiExpanded;
+		this.keywords = new ArrayList<>(other.keywords);
 		this.children = new ArrayList<>();
 		this.stateListener = null;
 
@@ -85,26 +88,6 @@ public abstract class AchievementElement
 	public void click()
 	{
 		setForceComplete(!isForceComplete());
-	}
-
-	public void addChild(AchievementElement child)
-	{
-		children.add(child);
-	}
-
-	public void removeChild(AchievementElement child)
-	{
-		children.remove(child);
-	}
-
-	public void setChild(int index, AchievementElement child)
-	{
-		children.set(index, child);
-	}
-
-	public AchievementElement getChild(int index)
-	{
-		return children.get(index);
 	}
 
 	public AchievementState getChildrenState()

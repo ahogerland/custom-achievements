@@ -43,6 +43,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
@@ -59,24 +60,34 @@ import javax.swing.JScrollPane;
 import javax.swing.JSeparator;
 import javax.swing.JToggleButton;
 import javax.swing.ScrollPaneConstants;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.plaf.basic.BasicSeparatorUI;
 
+import com.google.common.collect.ImmutableSet;
+import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
 import net.runelite.client.ui.ColorScheme;
 import net.runelite.client.ui.FontManager;
 import net.runelite.client.ui.PluginPanel;
+import net.runelite.client.ui.components.IconTextField;
 import net.runelite.client.util.ImageUtil;
 import net.runelite.client.util.SwingUtil;
+import net.runelite.client.util.Text;
 
 @Slf4j
 public class CustomAchievementsPanel extends PluginPanel
 {
+	public static final String LIST_SEPARATOR_REGEX = " *[,;|] *| +";
+
 	public static final int LIST_ENTRY_HEIGHT = 18;
 	public static final int LIST_ENTRY_GAP = LIST_ENTRY_HEIGHT + 1;
 	public static final int BUTTON_WIDTH = 24;
 	public static final int INDENT_WIDTH = 24;
+
+	private static final int SEARCH_BAR_HEIGHT = 20;
 
 	private static final ImageIcon IMPORT_ICON;
 	private static final ImageIcon IMPORT_ICON_HOVER;
@@ -107,6 +118,7 @@ public class CustomAchievementsPanel extends PluginPanel
 
 	private final JLabel title = new JLabel();
 	private final JLabel info = new JLabel();
+	private final IconTextField searchBar = new IconTextField();
 	private final JSeparator infoSeparator = new JSeparator();
 
 	private final JButton clearButton = new JButton();
@@ -182,34 +194,35 @@ public class CustomAchievementsPanel extends PluginPanel
 
 		this.plugin = plugin;
 		this.config = config;
-		this.editAchievementPanel = new EditAchievementPanel(plugin);
 
+		setLayout(new BorderLayout());
+		setBorder(BorderFactory.createEmptyBorder(BORDER_OFFSET, BORDER_OFFSET, BORDER_OFFSET, BORDER_OFFSET));
+		setBackground(ColorScheme.DARK_GRAY_COLOR);
+
+		final JPanel headerPanel = new JPanel();
+		headerPanel.setLayout(new BorderLayout());
+		headerPanel.setBorder(BorderFactory.createEmptyBorder(1, 0, BORDER_OFFSET, 0));
+
+		final JPanel actionsWrapper = new JPanel();
+		actionsWrapper.setLayout(new GridLayout(1, 4, -10, 0));
+
+		final JPanel headerSouthWrapper = new JPanel();
+		headerSouthWrapper.setLayout(new BorderLayout());
+
+		final JPanel achievementsWrapper = new JPanel();
+		achievementsWrapper.setLayout(new BorderLayout());
+		achievementsWrapper.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+
+		final JScrollPane achievementsScrollPane = new JScrollPane(achievementsWrapper);
+		achievementsScrollPane.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+
+		editAchievementPanel = new EditAchievementPanel(plugin);
 		editAchievementPanel.setVisible(false);
 		editAchievementPanel.addActionListener(e -> {
 			// An ActionEvent will signal that we are done editing
 			editAchievementPanel.setVisible(false);
 			refresh();
 		});
-
-		final JPanel headerPanel = new JPanel();
-		final JPanel actionsWrapper = new JPanel();
-		final JPanel infoWrapper = new JPanel();
-		final JPanel achievementsWrapper = new JPanel();
-
-		final JScrollPane achievementsScrollPane = new JScrollPane(achievementsWrapper);
-		achievementsScrollPane.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
-
-		setLayout(new BorderLayout());
-		setBorder(BorderFactory.createEmptyBorder(BORDER_OFFSET, BORDER_OFFSET, BORDER_OFFSET, BORDER_OFFSET));
-		setBackground(ColorScheme.DARK_GRAY_COLOR);
-
-		headerPanel.setLayout(new BorderLayout());
-		headerPanel.setBorder(BorderFactory.createEmptyBorder(1, 0, 1, 0));
-
-		actionsWrapper.setLayout(new GridLayout(1, 4, -10, 0));
-		infoWrapper.setLayout(new BorderLayout());
-		achievementsWrapper.setLayout(new BorderLayout());
-		achievementsWrapper.setBackground(ColorScheme.DARKER_GRAY_COLOR);
 
 		achievementsPanel.setLayout(new GridBagLayout());
 		achievementsPanel.setBorder(BorderFactory.createEmptyBorder());
@@ -218,9 +231,32 @@ public class CustomAchievementsPanel extends PluginPanel
 		info.setForeground(ColorScheme.LIGHT_GRAY_COLOR);
 		info.setFont(FontManager.getRunescapeSmallFont());
 		info.setBorder(BorderFactory.createEmptyBorder(BORDER_OFFSET, 0, BORDER_OFFSET, 0));
-
 		infoSeparator.setUI(new BasicSeparatorUI());
 		infoSeparator.setBackground(ColorScheme.LIGHT_GRAY_COLOR);
+
+		searchBar.setIcon(IconTextField.Icon.SEARCH);
+		searchBar.setPreferredSize(new Dimension(PANEL_WIDTH, SEARCH_BAR_HEIGHT));
+		searchBar.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+		searchBar.getDocument().addDocumentListener(new DocumentListener()
+		{
+			@Override
+			public void insertUpdate(DocumentEvent e)
+			{
+				refresh();
+			}
+
+			@Override
+			public void removeUpdate(DocumentEvent e)
+			{
+				refresh();
+			}
+
+			@Override
+			public void changedUpdate(DocumentEvent e)
+			{
+				refresh();
+			}
+		});
 
 		clearButton.setText("Clear All");
 		clearButton.setVisible(false);
@@ -263,13 +299,14 @@ public class CustomAchievementsPanel extends PluginPanel
 		actionsWrapper.add(exportButton);
 		actionsWrapper.add(addButton);
 		actionsWrapper.add(editToggle);
-		infoWrapper.add(infoSeparator, BorderLayout.NORTH);
-		infoWrapper.add(info, BorderLayout.SOUTH);
+		headerSouthWrapper.add(infoSeparator, BorderLayout.NORTH);
+		headerSouthWrapper.add(info, BorderLayout.CENTER);
+		headerSouthWrapper.add(searchBar, BorderLayout.SOUTH);
 		achievementsWrapper.add(achievementsPanel, BorderLayout.NORTH);
 
 		headerPanel.add(title, BorderLayout.WEST);
-		headerPanel.add(infoWrapper, BorderLayout.SOUTH);
 		headerPanel.add(actionsWrapper, BorderLayout.EAST);
+		headerPanel.add(headerSouthWrapper, BorderLayout.SOUTH);
 
 		add(headerPanel, BorderLayout.NORTH);
 		add(achievementsScrollPane, BorderLayout.CENTER);
@@ -362,8 +399,10 @@ public class CustomAchievementsPanel extends PluginPanel
 
 		try (FileWriter out = new FileWriter(file))
 		{
-			plugin.updateConfig();
-			out.write(config.achievementsData());
+			final CustomAchievementsSerializer serializer = new CustomAchievementsSerializer().setPrettyPrinting();
+			final String json = serializer.toJson(plugin.getElements());
+
+			out.write(json);
 		}
 		catch (IOException e)
 		{
@@ -397,6 +436,7 @@ public class CustomAchievementsPanel extends PluginPanel
 
 			title.setText(TITLE_EDIT);
 			info.setText(INFO_EDIT);
+			searchBar.setVisible(false);
 			clearButton.setVisible(false);
 
 			achievementsPanel.add(editAchievementPanel, gbc);
@@ -406,6 +446,12 @@ public class CustomAchievementsPanel extends PluginPanel
 			final Deque<Deque<AchievementElement>> stack = new ArrayDeque<>();
 			final Deque<AchievementElement> parents = new ArrayDeque<>();
 			Deque<AchievementElement> elements;
+
+			final String searchText = searchBar.getText().toLowerCase();
+			final Iterable<String> searchTerms = Arrays.asList(searchText.split(LIST_SEPARATOR_REGEX));
+			final ImmutableSet<AchievementElement> filteredElements = searchText.isEmpty() ?
+					ImmutableSet.of() :
+					filteredAchievementElements(searchTerms);
 
 			JPanel wrapper;
 			ActionListener expandCallback;
@@ -421,6 +467,7 @@ public class CustomAchievementsPanel extends PluginPanel
 
 			title.setText(TITLE_MAIN);
 			info.setText(INFO_USAGE);
+			searchBar.setVisible(true);
 			clearButton.setVisible(editToggle.isSelected());
 
 			stack.push(new ArrayDeque<>(plugin.getElements()));
@@ -437,6 +484,12 @@ public class CustomAchievementsPanel extends PluginPanel
 							plugin.getElements() :
 							parent.getChildren();
 					final int index = elementsRef.size() - elements.size() - 1;
+
+					// Apply search filter
+					if (!searchText.isEmpty() && !filteredElements.contains(element))
+					{
+						continue;
+					}
 
 					element.refresh();
 					JLabel label = createAchievementElement(element);
@@ -574,6 +627,76 @@ public class CustomAchievementsPanel extends PluginPanel
 			plugin.updateConfig();
 			refresh();
 		}
+	}
+
+	private ImmutableSet<AchievementElement> filteredAchievementElements(@NonNull Iterable<String> searchTerms)
+	{
+		final ImmutableSet.Builder<AchievementElement> filteredElementsBuilder = new ImmutableSet.Builder<>();
+		final Deque<Deque<AchievementElement>> stack = new ArrayDeque<>();
+		final Deque<AchievementElement> path = new ArrayDeque<>();
+		Deque<AchievementElement> elements;
+
+		final List<String> elementNameWrapper = new ArrayList<>(1);
+		elementNameWrapper.add("");
+
+		stack.push(new ArrayDeque<>(plugin.getElements()));
+
+		while (!stack.isEmpty())
+		{
+			elements = stack.peek();
+
+			while (!elements.isEmpty())
+			{
+				final AchievementElement element = elements.pop();
+				elementNameWrapper.set(0, element.toString().toLowerCase());
+
+				// Check for matches against keywords and the element name
+				final boolean matched = Text.matchesSearchTerms(searchTerms, elementNameWrapper) ||
+						Text.matchesSearchTerms(searchTerms, element.getKeywords());
+
+				// Add all children to the filtered set if matched, otherwise push to the stack
+				if (!element.getChildren().isEmpty())
+				{
+					if (matched)
+					{
+						Deque<AchievementElement> children = new ArrayDeque<>(element.getChildren());
+						AchievementElement child;
+
+						while (!children.isEmpty())
+						{
+							child = children.pop();
+							children.addAll(child.getChildren());
+							filteredElementsBuilder.add(child);
+						}
+					}
+					else
+					{
+						path.push(element);
+						stack.push(new ArrayDeque<>(element.getChildren()));
+						break;
+					}
+				}
+
+				if (matched)
+				{
+					path.push(element);
+					filteredElementsBuilder.addAll(path);
+					path.pop();
+				}
+			}
+
+			if (stack.peek().isEmpty())
+			{
+				stack.pop();
+
+				if (!path.isEmpty())
+				{
+					path.pop();
+				}
+			}
+		}
+
+		return filteredElementsBuilder.build();
 	}
 
 	private JLabel createAchievementElement(AchievementElement element)
