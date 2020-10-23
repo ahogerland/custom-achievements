@@ -1,4 +1,5 @@
 /*
+ * Copyright (c) 2017, Adam <Adam@sigterm.info>
  * Copyright (c) 2020, Alec Hogerland <https://github.com/ahogerland>
  * All rights reserved.
  *
