@@ -316,7 +316,7 @@ public class CustomAchievementsPlugin extends Plugin
 			case ITEM:
 				return new ItemRequirement("", 1);
 			case SLAY:
-				return new SlayRequirement("", 1);
+				return new SlayRequirement("", false, 1);
 			case QUEST:
 				return new QuestRequirement(Quest.COOKS_ASSISTANT);
 			case CHUNK:

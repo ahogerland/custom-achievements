@@ -45,6 +45,7 @@ import javax.swing.BorderFactory;
 import javax.swing.DefaultListCellRenderer;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
+import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
 import javax.swing.JLabel;
 import javax.swing.JList;
@@ -504,7 +505,7 @@ public class EditAchievementPanel extends FixedWidthPanel
 
 	private JPanel createSlayRequirementPanel(final SlayRequirement requirement)
 	{
-		final JPanel wrapper = new JPanel(new GridLayout(2, 2));
+		final JPanel wrapper = new JPanel(new GridLayout(3, 2));
 		wrapper.setBackground(ColorScheme.DARKER_GRAY_COLOR);
 
 		final JLabel nameLabel = new JLabel("Target");
@@ -543,10 +544,19 @@ public class EditAchievementPanel extends FixedWidthPanel
 			refresh();
 		});
 
+		final JLabel properNounLabel = new JLabel("Proper Noun");
+		properNounLabel.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+
+		final JCheckBox properNounCheckBox = new JCheckBox();
+		properNounCheckBox.setSelected(requirement.isProperNoun());
+		properNounCheckBox.addActionListener(e -> requirement.setProperNoun(properNounCheckBox.isSelected()));
+
 		wrapper.add(nameLabel);
 		wrapper.add(nameInput);
 		wrapper.add(quantityLabel);
 		wrapper.add(quantitySpinner);
+		wrapper.add(properNounLabel);
+		wrapper.add(properNounCheckBox);
 
 		return wrapper;
 	}

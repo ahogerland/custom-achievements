@@ -111,10 +111,8 @@ public class ItemRequirement extends Requirement
 		}
 		else
 		{
-			return String.format("%s (%d/%d)",
-					name,
-					getState() == COMPLETE ? quantity : Math.min(count, quantity),
-					quantity);
+			final int done = getState() == COMPLETE ? quantity : Math.min(count, quantity);
+			return String.format("%s (%d/%d)", name, done, quantity);
 		}
 	}
 

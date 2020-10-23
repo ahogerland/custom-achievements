@@ -39,13 +39,15 @@ import static com.customachievements.AchievementState.*;
 public class SlayRequirement extends Requirement
 {
 	private String name;
+	private boolean properNoun;
 	private int quantity;
 	private int count;
 
-	public SlayRequirement(String name, int quantity)
+	public SlayRequirement(String name, boolean properNoun, int quantity)
 	{
 		super(RequirementType.SLAY);
 		this.name = name;
+		this.properNoun = properNoun;
 		this.quantity = quantity;
 		this.count = 0;
 	}
@@ -54,6 +56,7 @@ public class SlayRequirement extends Requirement
 	{
 		super(other);
 		this.name = other.name;
+		this.properNoun = other.properNoun;
 		this.quantity = other.quantity;
 		this.count = other.count;
 	}
@@ -99,11 +102,10 @@ public class SlayRequirement extends Requirement
 		}
 		else
 		{
-			return String.format("Defeat %s %s (%d/%d)",
-					VOWELS.contains(Character.toLowerCase(name.charAt(0))) ? "an" : "a",
-					name,
-					getState() == COMPLETE ? quantity : Math.min(count, quantity),
-					quantity);
+			final String article = VOWELS.contains(Character.toLowerCase(name.charAt(0))) ? "an " : "a ";
+			final int done = getState() == COMPLETE ? quantity : Math.min(count, quantity);
+
+			return String.format("Defeat %s%s (%d/%d)", !isProperNoun() ? article : "", name, done, quantity);
 		}
 	}
 
