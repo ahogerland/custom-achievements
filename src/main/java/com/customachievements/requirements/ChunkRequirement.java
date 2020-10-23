@@ -25,27 +25,74 @@
  */
 package com.customachievements.requirements;
 
-import lombok.AllArgsConstructor;
+import com.customachievements.AchievementElement;
+import com.customachievements.events.ChunkEntered;
+import com.google.common.base.Strings;
 import lombok.Getter;
+import lombok.Setter;
+import net.runelite.api.Client;
+import net.runelite.api.GameState;
+import net.runelite.client.eventbus.Subscribe;
+
+import static com.customachievements.AchievementState.COMPLETE;
 
 @Getter
-@AllArgsConstructor
-public enum RequirementType
+@Setter
+public class ChunkRequirement extends Requirement
 {
-	NONE("Select a requirement type...", ""),
-	ABSTRACT("Abstract", "An abstract requirement that must be marked as completed manually."),
-	SKILL("Skill", "Require a skill level or XP amount."),
-	ITEM("Item", "Collect an item. (Requires LootTracker)"),
-	SLAY("Slay", "Slay a monster."),
-	QUEST("Quest", "Require quest completion."),
-	CHUNK("Chunk", "Require chunk to be unlocked. (triggered by entering the chunk)");
+	private int regionId;
+	private String nickname;
 
-	private final String name;
-	private final String description;
+	public ChunkRequirement(int regionId, String nickname)
+	{
+		super(RequirementType.CHUNK);
+		this.regionId = regionId;
+		this.nickname = nickname;
+	}
+
+	public ChunkRequirement(ChunkRequirement other)
+	{
+		super(other);
+		this.regionId = other.regionId;
+		this.nickname = other.nickname;
+	}
+
+	@Subscribe
+	public void onChunkEntered(final ChunkEntered chunkEntered)
+	{
+		if (getProgress() != COMPLETE && chunkEntered.getRegionId() == regionId)
+		{
+			setProgress(COMPLETE);
+			refresh();
+		}
+	}
+
+	@Override
+	public void forceUpdate(Client client)
+	{
+		if (client.getGameState() == GameState.LOGGED_IN &&
+			client.getLocalPlayer().getWorldLocation().getRegionID() == regionId)
+		{
+			setProgress(COMPLETE);
+		}
+	}
+
+	@Override
+	public AchievementElement deepCopy()
+	{
+		return new ChunkRequirement(this);
+	}
 
 	@Override
 	public String toString()
 	{
-		return name;
+		if (Strings.isNullOrEmpty(nickname))
+		{
+			return String.format("Unlock Chunk %d", regionId);
+		}
+		else
+		{
+			return "Unlock " + nickname;
+		}
 	}
 }

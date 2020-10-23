@@ -48,13 +48,15 @@ public class QuestStateReporter
 	private final Client client;
 	private final EventBus eventBus;
 
-	private final Map<Integer, QuestState> questStateCache = new HashMap<>();
+	private final Map<Integer, QuestState> questStateCache;
 
 	@Inject
 	public QuestStateReporter(final Client client, final EventBus eventBus)
 	{
 		this.client = client;
 		this.eventBus = eventBus;
+
+		questStateCache = new HashMap<>();
 	}
 
 	@Subscribe

@@ -53,6 +53,7 @@ import javax.swing.JSpinner;
 import javax.swing.SpinnerNumberModel;
 
 import com.customachievements.requirements.AbstractRequirement;
+import com.customachievements.requirements.ChunkRequirement;
 import com.customachievements.requirements.ItemRequirement;
 import com.customachievements.requirements.ItemTrackingOption;
 import com.customachievements.requirements.QuestRequirement;
@@ -326,34 +327,6 @@ public class EditAchievementPanel extends FixedWidthPanel
 		return wrapper;
 	}
 
-	// TODO: Add this back if autoCompleted is reimplemented
-	/*
-	private JPanel createAutoCompletionCheckBox()
-	{
-		final JPanel wrapper = new JPanel(new BorderLayout());
-		wrapper.setBorder(BorderFactory.createEmptyBorder(0, BORDER_OFFSET, BORDER_OFFSET, BORDER_OFFSET));
-		wrapper.setBackground(ColorScheme.DARKER_GRAY_COLOR);
-
-		final String toolTip = "Automatically mark as completed once all requirements are complete.";
-
-		final JLabel nameLabel = new JLabel("Automatic Completion");
-		nameLabel.setForeground(ColorScheme.BRAND_ORANGE);
-		nameLabel.setBackground(ColorScheme.DARKER_GRAY_COLOR);
-		nameLabel.setFont(FontManager.getRunescapeSmallFont());
-		nameLabel.setToolTipText(toolTip);
-
-		final JCheckBox checkBox = new JCheckBox();
-		checkBox.setToolTipText(toolTip);
-		checkBox.setSelected(target.isAutoCompleted());
-		checkBox.addActionListener(e -> target.setAutoCompleted(checkBox.isSelected()));
-
-		wrapper.add(nameLabel, BorderLayout.WEST);
-		wrapper.add(checkBox, BorderLayout.EAST);
-
-		return wrapper;
-	}
-	*/
-
 	private JPanel createRequirementPanel(final Requirement requirement, boolean sub)
 	{
 		final JPanel wrapper = new JPanel(new BorderLayout());
@@ -396,15 +369,22 @@ public class EditAchievementPanel extends FixedWidthPanel
 			case QUEST:
 				requirementPanel = createQuestRequirementPanel((QuestRequirement) requirement);
 				break;
+			case CHUNK:
+				requirementPanel = createChunkRequirementPanel((ChunkRequirement) requirement);
+				break;
 			case ABSTRACT:
 			default:
 				requirementPanel = createAbstractRequirementPanel((AbstractRequirement) requirement);
 		}
 
 		titleWrapper.add(nameLabel, BorderLayout.WEST);
-		titleWrapper.add(removeButton, BorderLayout.EAST);
 		wrapper.add(titleWrapper, BorderLayout.NORTH);
 		wrapper.add(requirementPanel, BorderLayout.CENTER);
+
+		if (requirement != target)
+		{
+			titleWrapper.add(removeButton, BorderLayout.EAST);
+		}
 
 		return wrapper;
 	}
@@ -583,10 +563,61 @@ public class EditAchievementPanel extends FixedWidthPanel
 		questComboBox.setRenderer(new QuestComboBoxRenderer());
 		questComboBox.addActionListener(e -> {
 			requirement.setQuest((Quest) questComboBox.getSelectedItem());
+			requirement.reset();
 			refresh();
 		});
 
 		wrapper.add(questComboBox, BorderLayout.CENTER);
+
+		return wrapper;
+	}
+
+	private JPanel createChunkRequirementPanel(final ChunkRequirement requirement)
+	{
+		final JPanel wrapper = new JPanel(new GridLayout(2, 2));
+		wrapper.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+
+		final JLabel regionLabel = new JLabel("Chunk ID");
+		regionLabel.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+
+		final JSpinner regionSpinner = new JSpinner();
+		regionSpinner.setEditor(new JSpinner.NumberEditor(regionSpinner, "#"));
+		regionSpinner.setBackground(ColorScheme.DARK_GRAY_COLOR);
+		regionSpinner.setValue(requirement.getRegionId());
+		regionSpinner.setToolTipText("Chunk ID");
+		regionSpinner.addChangeListener(e -> {
+			requirement.setRegionId((int) regionSpinner.getValue());
+			requirement.reset();
+			refresh();
+		});
+
+		final JLabel nicknameLabel = new JLabel("Nickname");
+		nicknameLabel.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+
+		final FlatTextField nicknameInput = new FlatTextField();
+		nicknameInput.setText(requirement.getNickname());
+		nicknameInput.setBackground(ColorScheme.DARK_GRAY_COLOR);
+		nicknameInput.setHoverBackgroundColor(ColorScheme.DARK_GRAY_HOVER_COLOR);
+		nicknameInput.addKeyListener(new KeyListener()
+		{
+			@Override
+			public void keyTyped(KeyEvent e) {}
+
+			@Override
+			public void keyPressed(KeyEvent e) {}
+
+			@Override
+			public void keyReleased(KeyEvent e)
+			{
+				requirement.setNickname(nicknameInput.getText());
+				requirement.reset();
+			}
+		});
+
+		wrapper.add(regionLabel);
+		wrapper.add(regionSpinner);
+		wrapper.add(nicknameLabel);
+		wrapper.add(nicknameInput);
 
 		return wrapper;
 	}

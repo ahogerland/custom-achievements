@@ -26,6 +26,7 @@
 package com.customachievements;
 
 import com.customachievements.requirements.AbstractRequirement;
+import com.customachievements.requirements.ChunkRequirement;
 import com.customachievements.requirements.ItemRequirement;
 import com.customachievements.requirements.QuestRequirement;
 import com.customachievements.requirements.Requirement;
@@ -121,6 +122,8 @@ public class CustomAchievementsSerializer
 					return context.deserialize(json, SlayRequirement.class);
 				case QUEST:
 					return context.deserialize(json, QuestRequirement.class);
+				case CHUNK:
+					return context.deserialize(json, ChunkRequirement.class);
 				case ABSTRACT:
 				default:
 					return context.deserialize(json, AbstractRequirement.class);

@@ -23,29 +23,15 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-package com.customachievements.requirements;
+package com.customachievements.events;
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
+import lombok.Value;
 
-@Getter
-@AllArgsConstructor
-public enum RequirementType
+/**
+ * Event published by the customachievements plugin when the currently logged-in player enters a chunk.
+ */
+@Value
+public class ChunkEntered
 {
-	NONE("Select a requirement type...", ""),
-	ABSTRACT("Abstract", "An abstract requirement that must be marked as completed manually."),
-	SKILL("Skill", "Require a skill level or XP amount."),
-	ITEM("Item", "Collect an item. (Requires LootTracker)"),
-	SLAY("Slay", "Slay a monster."),
-	QUEST("Quest", "Require quest completion."),
-	CHUNK("Chunk", "Require chunk to be unlocked. (triggered by entering the chunk)");
-
-	private final String name;
-	private final String description;
-
-	@Override
-	public String toString()
-	{
-		return name;
-	}
+	int regionId;
 }

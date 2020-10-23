@@ -26,6 +26,7 @@
 package com.customachievements;
 
 import com.customachievements.requirements.AbstractRequirement;
+import com.customachievements.requirements.ChunkRequirement;
 import com.customachievements.requirements.ItemRequirement;
 import com.customachievements.requirements.QuestRequirement;
 import com.customachievements.requirements.Requirement;
@@ -37,7 +38,6 @@ import com.google.common.base.Strings;
 import com.google.inject.Provides;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
-import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
@@ -66,7 +66,6 @@ import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-@Slf4j
 @PluginDescriptor(
 	name = "Custom Achievements",
 	description = "Create custom achievements",
@@ -107,16 +106,20 @@ public class CustomAchievementsPlugin extends Plugin
 	private ScheduledExecutorService executorService;
 
 	@Inject
+	private ItemReporter itemReporter;
+
+	@Inject
 	private NpcKillReporter npcKillReporter;
 
 	@Inject
 	private QuestStateReporter questStateReporter;
 
 	@Inject
-	private ItemReporter itemReporter;
+	private ChunkEnteredReporter chunkEnteredReporter;
 
 	// Tick timestamp on login
 	private int loginTickCount = 0;
+	private boolean loggedOut = true;
 
 	private CustomAchievementsPanel panel;
 	private NavigationButton navigationButton;
@@ -139,9 +142,16 @@ public class CustomAchievementsPlugin extends Plugin
 	@Subscribe
 	public void onGameStateChanged(final GameStateChanged gameStateChanged)
 	{
-		if (gameStateChanged.getGameState() == GameState.LOGGED_IN)
+		if (gameStateChanged.getGameState() == GameState.LOGIN_SCREEN)
 		{
+			loggedOut = true;
+		}
+		else if (gameStateChanged.getGameState() == GameState.LOGGED_IN && loggedOut)
+		{
+			loggedOut = false;
 			loginTickCount = client.getTickCount();
+
+			// Wait for startup scripts and events to run before refreshing to avoid flicker
 			executorService.schedule(this::globalRefresh, 1, TimeUnit.SECONDS);
 		}
 	}
@@ -309,6 +319,8 @@ public class CustomAchievementsPlugin extends Plugin
 				return new SlayRequirement("", 1);
 			case QUEST:
 				return new QuestRequirement(Quest.COOKS_ASSISTANT);
+			case CHUNK:
+				return new ChunkRequirement(0, "");
 			case ABSTRACT:
 			default:
 				return new AbstractRequirement("");
@@ -334,17 +346,19 @@ public class CustomAchievementsPlugin extends Plugin
 		clientToolbar.addNavigation(navigationButton);
 		loadConfig(configJson);
 
+		eventBus.register(itemReporter);
 		eventBus.register(npcKillReporter);
 		eventBus.register(questStateReporter);
-		eventBus.register(itemReporter);
+		eventBus.register(chunkEnteredReporter);
 	}
 
 	@Override
 	protected void shutDown()
 	{
+		eventBus.unregister(itemReporter);
 		eventBus.unregister(npcKillReporter);
 		eventBus.unregister(questStateReporter);
-		eventBus.unregister(itemReporter);
+		eventBus.unregister(chunkEnteredReporter);
 
 		updateConfig();
 		clear();
@@ -356,7 +370,7 @@ public class CustomAchievementsPlugin extends Plugin
 		int ticksElapsed = client.getTickCount() - loginTickCount;
 
 		// Wait a few game ticks for everything to update
-		return ticksElapsed > 4 && client.getGameState() == GameState.LOGGED_IN;
+		return ticksElapsed > 4;
 	}
 
 	private void updateAchievementElements(List<AchievementElement> list)

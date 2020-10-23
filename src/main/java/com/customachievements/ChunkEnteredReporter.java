@@ -23,29 +23,51 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-package com.customachievements.requirements;
+package com.customachievements;
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
+import com.customachievements.events.ChunkEntered;
+import net.runelite.api.Client;
+import net.runelite.api.coords.WorldPoint;
+import net.runelite.api.events.GameTick;
+import net.runelite.client.eventbus.EventBus;
+import net.runelite.client.eventbus.Subscribe;
 
-@Getter
-@AllArgsConstructor
-public enum RequirementType
+import javax.inject.Inject;
+
+public class ChunkEnteredReporter
 {
-	NONE("Select a requirement type...", ""),
-	ABSTRACT("Abstract", "An abstract requirement that must be marked as completed manually."),
-	SKILL("Skill", "Require a skill level or XP amount."),
-	ITEM("Item", "Collect an item. (Requires LootTracker)"),
-	SLAY("Slay", "Slay a monster."),
-	QUEST("Quest", "Require quest completion."),
-	CHUNK("Chunk", "Require chunk to be unlocked. (triggered by entering the chunk)");
+	private final Client client;
+	private final EventBus eventBus;
 
-	private final String name;
-	private final String description;
+	private WorldPoint lastTile;
+	private int lastRegionId;
 
-	@Override
-	public String toString()
+	@Inject
+	public ChunkEnteredReporter(final Client client, final EventBus eventBus)
 	{
-		return name;
+		this.client = client;
+		this.eventBus = eventBus;
+
+		lastTile = null;
+		lastRegionId = -1;
+	}
+
+	@Subscribe
+	public void onGameTick(final GameTick _gameTick)
+	{
+		final WorldPoint tile = client.getLocalPlayer().getWorldLocation();
+
+		if (lastTile == null || lastTile.distanceTo(tile) > 0)
+		{
+			final int regionId = tile.getRegionID();
+
+			lastTile = tile;
+
+			if (lastRegionId != regionId)
+			{
+				lastRegionId = regionId;
+				eventBus.post(new ChunkEntered(regionId));
+			}
+		}
 	}
 }
