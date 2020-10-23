@@ -81,12 +81,12 @@ public abstract class Requirement extends AchievementElement
 
 		if (isForceComplete())
 		{
+			setState(COMPLETE);
+
 			if (progress == COMPLETE && childrenState == COMPLETE)
 			{
 				setForceComplete(false);
 			}
-
-			setState(COMPLETE);
 		}
 		else if (!getChildren().isEmpty() &&
 					((progress == COMPLETE && childrenState != COMPLETE) ||

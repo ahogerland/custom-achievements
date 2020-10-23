@@ -59,12 +59,12 @@ public class Achievement extends AchievementElement
 
 		if (isForceComplete())
 		{
+			setState(COMPLETE);
+
 			if (childrenState == COMPLETE)
 			{
 				setForceComplete(false);
 			}
-
-			setState(COMPLETE);
 		}
 		else
 		{
