@@ -269,6 +269,7 @@ public class EditAchievementPanel extends FixedWidthPanel
 		keywordInput.setText(String.join(", ", element.getKeywords()));
 		keywordInput.setBackground(ColorScheme.DARK_GRAY_COLOR);
 		keywordInput.setHoverBackgroundColor(ColorScheme.DARK_GRAY_HOVER_COLOR);
+		keywordInput.setToolTipText("Additional keywords to match when searching.");
 		keywordInput.addKeyListener(new KeyListener()
 		{
 			@Override
@@ -445,6 +446,7 @@ public class EditAchievementPanel extends FixedWidthPanel
 
 		final JLabel nameLabel = new JLabel("Item");
 		nameLabel.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+		nameLabel.setToolTipText("The name of the item to collect.");
 
 		final FlatTextField nameInput = new FlatTextField();
 		nameInput.setText(requirement.getName());
@@ -468,6 +470,7 @@ public class EditAchievementPanel extends FixedWidthPanel
 
 		final JLabel quantityLabel = new JLabel("Quantity");
 		quantityLabel.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+		quantityLabel.setToolTipText("The number of items to collect.");
 
 		final JSpinner quantitySpinner = new JSpinner(new SpinnerNumberModel(1, 1, Integer.MAX_VALUE, 1));
 		quantitySpinner.setBackground(ColorScheme.DARK_GRAY_COLOR);
@@ -481,6 +484,7 @@ public class EditAchievementPanel extends FixedWidthPanel
 
 		final JLabel trackingLabel = new JLabel("Tracking Option");
 		quantityLabel.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+		quantityLabel.setToolTipText("The method in which items are to be collected.");
 
 		final JComboBox<ItemTrackingOption> trackingComboBox = new JComboBox<>(ItemTrackingOption.values());
 		trackingComboBox.setForeground(Color.WHITE);
@@ -510,6 +514,7 @@ public class EditAchievementPanel extends FixedWidthPanel
 
 		final JLabel nameLabel = new JLabel("Target");
 		nameLabel.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+		nameLabel.setToolTipText("The name of the target.");
 
 		final FlatTextField nameInput = new FlatTextField();
 		nameInput.setText(requirement.getName());
@@ -533,11 +538,11 @@ public class EditAchievementPanel extends FixedWidthPanel
 
 		final JLabel quantityLabel = new JLabel("Quantity");
 		quantityLabel.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+		quantityLabel.setToolTipText("Number of monsters to slay.");
 
 		final JSpinner quantitySpinner = new JSpinner(new SpinnerNumberModel(1, 1, Integer.MAX_VALUE, 1));
 		quantitySpinner.setBackground(ColorScheme.DARK_GRAY_COLOR);
 		quantitySpinner.setValue(requirement.getQuantity());
-		quantitySpinner.setToolTipText("Quantity");
 		quantitySpinner.addChangeListener(e -> {
 			requirement.setQuantity((int) quantitySpinner.getValue());
 			requirement.setProgress(AchievementState.INCOMPLETE);
@@ -546,6 +551,7 @@ public class EditAchievementPanel extends FixedWidthPanel
 
 		final JLabel properNounLabel = new JLabel("Proper Noun");
 		properNounLabel.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+		properNounLabel.setToolTipText("Select if this monster's name is grammatically a proper noun.");
 
 		final JCheckBox properNounCheckBox = new JCheckBox();
 		properNounCheckBox.setSelected(requirement.isProperNoun());
@@ -589,12 +595,12 @@ public class EditAchievementPanel extends FixedWidthPanel
 
 		final JLabel regionLabel = new JLabel("Chunk ID");
 		regionLabel.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+		regionLabel.setToolTipText("The chunk/region ID. (Tip: The RegionLocker plugin displays these on the map in-game)");
 
 		final JSpinner regionSpinner = new JSpinner();
 		regionSpinner.setEditor(new JSpinner.NumberEditor(regionSpinner, "#"));
 		regionSpinner.setBackground(ColorScheme.DARK_GRAY_COLOR);
 		regionSpinner.setValue(requirement.getRegionId());
-		regionSpinner.setToolTipText("Chunk ID");
 		regionSpinner.addChangeListener(e -> {
 			requirement.setRegionId((int) regionSpinner.getValue());
 			requirement.reset();
@@ -603,6 +609,7 @@ public class EditAchievementPanel extends FixedWidthPanel
 
 		final JLabel nicknameLabel = new JLabel("Nickname");
 		nicknameLabel.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+		nicknameLabel.setToolTipText("Give the chunk a nickname that will be displayed instead of the ID.");
 
 		final FlatTextField nicknameInput = new FlatTextField();
 		nicknameInput.setText(requirement.getNickname());
